@@ -1,0 +1,10 @@
+"UnlitGeneric"
+{
+	"$basetexture"	"effects/shield/explosive_burst"
+	"$additive"	1
+	"$vertexcolor"	1
+	"$vertexalpha"	1
+
+
+
+}

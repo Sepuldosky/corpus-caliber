@@ -1,0 +1,35 @@
+"UnlitGeneric"
+{
+	"$basetexture" "models\shield\energy_shield"
+	"$nodecal" "1"
+	"$model" "1"
+	"$additive" "1"
+	"$nocull" "1"
+	"$alpha" "1"
+
+	"$phong" "1"
+	"$phongexponent" "255"
+	"$phongboost" "4"
+
+	"$detail" "models\shield\energy_shield_detail"
+	"$detailblendmode" "5"
+	"$detailblendfactor" "2.00"
+	"$detailscale" "1"
+
+	"Proxies"
+	{
+		"TextureScroll"
+		{
+			"texturescrollvar" "$basetexturetransform"
+			"texturescrollrate" .1
+			"texturescrollangle" 60
+		}
+		"TextureScroll"
+		{
+			"texturescrollvar" "$detailtexturetransform"
+			"texturescrollrate" .1
+			"texturescrollangle" 60
+		}
+	}
+
+}

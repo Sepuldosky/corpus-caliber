@@ -1,0 +1,19 @@
+"UnlitGeneric"
+{
+	"$basetexture" "models\shield\energy_shield"
+	"$nodecal" "1"
+	"$model" "1"
+	"$additive" "1"
+	"$nocull" "1"
+	"$alha" "1"
+	"Proxies"
+	{
+		"TextureScroll"
+		{
+			"texturescrollvar" "$basetexturetransform"
+			"texturescrollrate" .1
+			"texturescrollangle" 60
+		}
+	}
+
+}

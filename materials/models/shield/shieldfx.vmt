@@ -1,0 +1,21 @@
+"VertexLitGeneric"
+{
+    $basetexture    "models\debug\debugwhite"
+
+    $model        1
+    $nocull        1
+    $translucent    1
+    $additive 1
+
+    $color2    "[ .5 .5 .5 ]"
+
+    $emissiveBlendEnabled    1
+    $emissiveBlendTexture    "models\shield\plasma_clouds_a"
+    $emissiveBlendBaseTexture    "models\shield\plasma_clouds_b"
+    $emissiveBlendFlowTexture    "models\shield\overshield"
+    $emissiveBlendTint        "[ .01 .01 0 ]"
+    $emissiveBlendStrength     1
+    $emissiveBlendScrollVector    "[ .4 .4 ]"
+
+    
+}
