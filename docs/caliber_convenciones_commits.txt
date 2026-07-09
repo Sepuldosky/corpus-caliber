@@ -1,0 +1,142 @@
+CALIBER — CONVENCIONES DE GIT COMMITS (repo: corpus-caliber/, el módulo de combate)
+Guía de estandarización para el historial de cambios de este repositorio
+=====================================================
+Documento vivo — actualizaciones según evolución del flujo.
+Basado en las convenciones de KONTROL, portadas vía ADS 2.0 y Corpus, adaptado al
+stack GLua / Garry's Mod y al alcance de Caliber como módulo de combate.
+
+Este doc cubre SOLO el repo corpus-caliber/. La estructura (secciones 0, 1, 2, 4, 5)
+es idéntica a corpus/docs/corpus_convenciones_commits.txt; solo la sección 3
+(alcances) cambia porque depende del mapa de archivos de este repo.
+=====================================================
+
+
+0. PROPÓSITO Y AUDIENCIA
+--------------------------
+
+Este documento establece las reglas y la estructura obligatoria para la redacción de
+mensajes de commit en el repositorio de CALIBER (módulo). Su objetivo es mantener un
+historial limpio, legible y automatizable.
+
+Aplica de forma estricta a todo commit confirmado en este repositorio,
+independientemente de quién o qué lo origine.
+
+
+1. ESTRUCTURA OBLIGATORIA DEL MENSAJE
+---------------------------------------
+
+Todo commit DEBE seguir el estándar de Conventional Commits adaptado al proyecto:
+
+  <tipo>(<alcance>): <descripción corta>
+
+Los tipos van en inglés (ver sección 2). La descripción y el cuerpo opcional del
+commit van en español.
+
+Reglas críticas de formato:
+- NUNCA empezar la descripción con mayúscula.
+- NUNCA incluir un punto (.) al final de la descripción.
+- Usar el tiempo presente imperativo (ej: "añade" en lugar de "añadido",
+  "aplica" en lugar de "aplicando").
+
+
+2. TIPOS DE COMMIT PERMITIDOS (<tipo>)
+----------------------------------------
+
+Se prohíben términos genéricos como "cambios", "fix" a secas o "tarea". Los tipos
+válidos son:
+
+  feat:
+    Una nueva funcionalidad para el módulo (nuevo subsistema, nueva mecánica de
+    dominio, nueva superficie pública consumible por otros módulos).
+
+  fix:
+    Corrección de un error o bug activo en el código Lua o en el esquema de datos
+    persistidos.
+
+  refactor:
+    Modificaciones en el código Lua que no añaden funcionalidades ni corrigen
+    errores.
+
+  docs:
+    Cambios exclusivos en archivos de documentación (.txt, .md, CLAUDE.md). No debe
+    tocar código.
+
+  chore:
+    Tareas de mantenimiento rutinario que no afectan la lógica del módulo ni la
+    documentación (ej: .gitignore, estructura de carpetas, assets, addon.json).
+
+  test:
+    Añadir, modificar o corregir bloques de auto-test o comandos de validación en
+    consola.
+
+
+3. ALCANCES ESPECÍFICOS DE CALIBER (<alcance>)
+-------------------------------------------------
+
+El alcance identifica el subsistema o área afectada. Debe ir siempre entre paréntesis.
+Para corpus-caliber/ (el módulo), los alcances definidos son:
+
+  armor:
+    Resolver puro y perfiles de armadura: ExtractBulletData, ResolveArmor,
+    materiales, ammo fallback, NWvars de armadura (corpus_caliber_armor.lua).
+
+  core:
+    Pipeline de daño (ScaleNPCDamage), config/whitelist, net, Block FX, feedback
+    sonoro, compat ARC9/VJ/Visceral (corpus_caliber_core.lua).
+
+  limbs:
+    Pools de HP por extremidad, debuffs (accuracy/speed/stun/drop), HealLimbs
+    (corpus_caliber_limbs.lua).
+
+  shields:
+    Escudos de energía: motor server + registry de tipos + FX cliente
+    (corpus_caliber_shields.lua, corpus_caliber_shields_cl.lua).
+
+  scavenger:
+    Recolección de armas por NPC (corpus_caliber_scavenger.lua).
+
+  browser:
+    UI de configuración por-NPC (corpus_caliber_browser.lua) y el tab del menú Q
+    (corpus_caliber_client_options.lua).
+
+  config:
+    Toolgun de debug (corpus_caliber_config.lua) y el manifest de carga
+    (corpus_caliber_init.lua).
+
+  docs:
+    Cambios a la arquitectura, estado, roadmap o convenciones cuando el commit es
+    puramente documental y no encaja en ninguno de los alcances de arriba.
+
+
+4. EJEMPLOS PRÁCTICOS DE APLICACIÓN
+-------------------------------------
+
+  4.1 Código:
+    - feat(shields): añade tipo de escudo "hev" al registry
+    - fix(armor): corrige normalización de claves de zona al cargar del JSON
+    - refactor(core): centraliza el registro de net strings vía Corpus.Net.Register
+
+  4.2 Estructura y docs:
+    - chore(config): añade el manifest de carga corpus_caliber_init.lua
+    - docs(docs): registra la migración ADS→Caliber como primer entry del CHANGELOG
+    - docs(docs): reconcilia Caliber_EnergyShields_Arquitectura.md contra el código
+
+
+5. AUTOMATIZACIÓN EN VSCODE
+-----------------------------
+
+Para garantizar que el flujo sea ágil y no requiera construcción manual en cada
+commit, se recomienda el uso de herramientas integradas en VSCode:
+
+  Extensión Conventional Commits:
+    Instalar la extensión "Conventional Commits" de Vivian De Smedt. Ofrece un menú
+    desplegable interactivo en la barra de Git para estructurar el tipo, alcance y
+    descripción de forma automática.
+
+=====================================================
+Documentos complementarios:
+  docs/Caliber_Architecture.md              → arquitectura del módulo (Block 2: migración)
+  docs/Caliber_EnergyShields_Arquitectura.md → subsistema de escudos (reconciliado)
+  CLAUDE.md                                 → guía operativa para asistencia con Claude Code
+  ../corpus/docs/corpus_flujo_trabajo.txt   → metodología compartida del ecosistema
+=====================================================
