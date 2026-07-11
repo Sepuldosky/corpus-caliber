@@ -54,6 +54,14 @@ por los seis repos del ecosistema.
       target, animación, timing) huele a comportamiento NPC → territorio de Cortex. NO
       se decide ahora; se re-homea SOLO si se confirma como behavior al diseñar Cortex.
 
+  [5] Semántica del arma en mano (cross-ref, deferred): persistencia de munición del
+      cargador, sistema de cargadores/munición (ARC9 custom vs HL2, con toggle),
+      condición→traba de disparo. Son hallazgos in-game del autor (2026-07-11) que
+      caen en el dominio de Caliber pero se capturaron ENTEROS en cargo_roadmap.txt
+      §16-22 — viven junto al pickup/drop/UI de Cargo, que es su otra mitad. La
+      frontera Cargo/Caliber se decide al diseñar ese bloque. No se duplica el detalle
+      acá (regla del flujo §5): ver ese doc.
+
 
 3. DEUDA HEREDADA (viaja sin tocar — §10 de la arquitectura)
 --------------------------------------------------------------
