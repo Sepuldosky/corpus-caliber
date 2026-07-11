@@ -5,7 +5,7 @@
 > secciones ni historial). El historial vive en `git` + [`CHANGELOG.md`](CHANGELOG.md).
 > Si crece de una pantalla, está mal redactado: recortar.
 
-**Última actualización:** 2026-07-09 (paridad verificada en juego — Block 2 CERRADO; sin commits todavía)
+**Última actualización:** 2026-07-11 (paridad ADS verificada en juego el 2026-07-09 — Block 2 CERRADO y commiteado, 9 commits en `main`; falta el push)
 
 ---
 
@@ -30,8 +30,8 @@
 
 ## Remanentes / deuda conocida
 
-- **El repo no tiene commits todavía** — todo el Block 2 verificado vive en working
-  tree; primer commit cuando el autor lo pida.
+- **Sin push todavía** — los 9 commits del Block 2 viven en `main` local; el `origin`
+  publicado en GitHub sigue vacío hasta que el autor haga el push.
 - **Deuda heredada de ADS, viaja SIN tocar** (§10 de la arquitectura): decal
   `Caliber_Ricochet` inerte, `DNumSlider` en tab Limbs/WL, doble mult de zona ARC9
   (Front 4, ~50% menos daño a miembros), cache de hitgroups por modelo.
@@ -45,7 +45,7 @@
 
 ## Próximo paso
 
-1. **Primer commit del repo** (cuando el autor lo pida): Block 2 completo verificado.
+1. **Push a GitHub** (cuando el autor lo pida): subir los 9 commits del Block 2 al `origin` vacío.
 2. **Block 3 de Caliber:** pipeline de armadura de jugador (alcance nuevo, NPC→agnóstico).
    Ver [`caliber_roadmap.txt`](caliber_roadmap.txt).
 
