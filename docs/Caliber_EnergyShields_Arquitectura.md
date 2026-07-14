@@ -270,10 +270,15 @@ Al editar el whitelist en vivo, `core` llama `CALIBER.RefreshShieldsForClass(cla
 
 ## 11. Deuda y deferrals
 
-- **Consumidor cliente ("Bloque B" en ADS):** los comentarios del código aún mencionan
-  que el consumidor de FX "llega en el Bloque B" — en ADS v1.0 ese consumidor
-  (`cl_ads_shields.lua`, hoy `corpus_caliber_shields_cl.lua`) ya está presente y
-  verificado. La redacción heredada es histórica.
+- **Consumidor cliente ("Bloque B" en ADS) — deuda SALDADA, no queda nada que limpiar.**
+  Los dos comentarios del legacy que anunciaban que el consumidor de FX "llega en el
+  Bloque B" (`ads_shields.lua:10` y `:196`) se reescribieron en la migración:
+  `corpus_caliber_shields.lua:10-11` ya dice «consumidos por `corpus_caliber_shields_cl.lua`,
+  migrado junto con el resto de este bloque» y `:197`, «el consumidor es
+  `corpus_caliber_shields_cl.lua`; emitir sin él (instalación parcial) es inocuo».
+  El único «Bloque B» que sobrevive en `lua/` es `corpus_caliber_shields.lua:452`, y es
+  otra cosa: una nota histórica sobre el bug del sonido de carga heredado por índice de
+  entidad, no sobre el consumidor.
 - **Sonidos `recharge_spartan.wav` / `recharge_elite.wav`:** referenciados por el
   registry; migran verbatim con los assets. Si algún wav falta en el paquete original,
   el `EmitSound` es no-op (paridad con ADS, no bug de migración).

@@ -5,7 +5,7 @@
 > secciones ni historial). El historial vive en `git` + [`CHANGELOG.md`](CHANGELOG.md).
 > Si crece de una pantalla, está mal redactado: recortar.
 
-**Última actualización:** 2026-07-11 (paridad ADS verificada en juego el 2026-07-09 — Block 2 CERRADO, commiteado y publicado en GitHub, `main`)
+**Última actualización:** 2026-07-14 (paridad ADS verificada en juego el 2026-07-09 — Block 2 CERRADO, commiteado y publicado en GitHub, `main`; los docs pasaron la **pasada de veracidad del 2026-07-14** — solo docs y comentarios, sin superficie de runtime)
 
 ---
 
@@ -34,8 +34,8 @@
   `Caliber_Ricochet` inerte, `DNumSlider` en tab Limbs/WL, doble mult de zona ARC9
   (Front 4, ~50% menos daño a miembros), cache de hitgroups por modelo.
 - **Sin `addon.json` todavía** — no se puede empaquetar para Workshop. No bloquea el
-  testeo local. Ojo: las carpetas en `garrysmod/addons/` son **copias**, no junctions —
-  re-copiar (o `mklink /J`) tras editar el repo.
+  testeo local: los repos están montados por **junction** en `garrysmod/addons/`, así
+  que editar el repo se refleja directo en el juego.
 - **Limbs API NPC-only** (§9.b): `HealLimbs` y los pools asumen `npc.Caliber_HP_*` /
   `IsNPC()`. Se vuelve agnóstica recién con el pipeline de armadura de jugador.
 - **Ruido de pasos recurrente en NPCs:** confirmado **externo a Corpus/Caliber** (se

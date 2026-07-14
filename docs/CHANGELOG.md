@@ -131,3 +131,174 @@ Nota — cierre de la verificación (2026-07-09): el autor confirmó en juego cv
 recurrente reportado en el primer intento **no viene de Corpus/Caliber** (se reprodujo
 con el módulo inerte y el código de locomoción es paridad exacta con ADS): queda fuera
 de scope, a investigar en el stack de addons externo (VJ/otros).
+
+---
+
+## PARCHES DE sesión Pasada de veracidad de docs — 2026-07-14
+
+Auditoría de veracidad del ecosistema: dónde el doc afirma hoy algo que el código
+desmiente. `Caliber_Architecture.md` es el doc de diseño **previo** a la bajada, y
+nunca se refrescó con lo que la implementación (y la verificación en juego) le
+enseñó: seguía publicando el patrón de boot con `error()` en file-scope —
+**exactamente el que dejó el módulo inerte** en la sesión del 2026-07-09— mientras
+`caliber_estado.md` declara el boot diferido «patrón template para los otros cuatro
+módulos». Misma deriva, más chica, en los deferrals (§9.a) y en el conteo de tabs del
+browser. Solo docs y comentarios: sin superficie de runtime.
+
+- PARCHE 1 — docs(docs): reescribe el snippet del init en §3 con el patrón real
+  —sonda `CorpusListo()` + `Boot()` diferido al hook `"Initialize"`, `AddCSLuaFile` en
+  file-scope, `MsgN` si tras `Initialize` no hay framework— y lo anota como contrato:
+  el init **NO aborta con `error()`**, porque `corpus_caliber_init.lua` ordena antes
+  que `corpus_registry.lua` en el `autorun` fusionado entre addons y abortar solo
+  consigue que el módulo no arranque nunca. Queda explícito que la iface se registra
+  como **tabla vacía** (se puebla by-ref, §11) y que este es el patrón **template** del
+  ecosistema. **[APLICADO 2026-07-14]**
+
+- PARCHE 2 — docs(docs): §9.a — el choke point de limbs no «espera consumidor»: **ya
+  emite**. `ApplyLimbDebuffs` cierra con `hook.Run("Caliber_LimbsUpdated", npc, reason)`
+  (`corpus_caliber_limbs.lua:298`, `reason ∈ spawn|damage|heal`), heredado verbatim de
+  ADS y hoy sin consumidor. El pendiente no es agregar el emit sino **enriquecer el
+  payload** —hoy `(npc, reason)`: sin zona, sin daño al pool, sin `dmginfo`— y elevarlo
+  a contrato. Tal como está es un aviso de refresh, no un evento de daño.
+  **[APLICADO 2026-07-14]**
+
+- PARCHE 3 — docs(docs): §8 — «Eventos de daño/limb: vacío en este bloque» se leía como
+  cero emits. Pasa a «**sin superficie de contrato**: existe un `Caliber_LimbsUpdated`
+  off-contract y sin consumidor». Mismo matiz en el bloque CONTRACT de
+  `corpus_caliber_init.lua` (solo comentario). **[APLICADO 2026-07-14]**
+
+- PARCHE 4 — docs(docs): §2 y §6 — el browser tiene **6** sub-tabs, no 5: falta **Energy
+  Shield** en la lista (Armor / Limbs-WL / Weapons / Energy Shield / Scavenger /
+  General). Ya eran 6 en el snapshot de ADS (`cl_ads_browser.lua`) y sobreviven en
+  Caliber (`corpus_caliber_browser.lua:2459-2464`). El doc se contradecía con su
+  hermano: `Caliber_EnergyShields_Arquitectura.md` §10 manda a editar los `shield_*`
+  «en el tab Energy Shield del browser». **[APLICADO 2026-07-14]**
+
+Segunda pasada (misma sesión): una revisión independiente encontró resto que sobrevivió
+**dentro de los archivos ya corregidos** — el caso peor, porque el doc quedaba
+contradiciéndose consigo mismo. Se cierran acá. Solo docs: sin superficie de runtime.
+
+- PARCHE 5 — docs(docs): §2 — «el legacy ADS queda intacto **en su propio repo**» es
+  falso: no es un repo. Quedó congelado en `dev/legacy/AdvancedDamageSystem 2.0/`,
+  carpeta fuera de **todos** los git del workspace (tag `v1.0`). Es la versión local de
+  la misma falsedad ya corregida en `CORPUS_Architecture.md` §7; se alinea con esa
+  redacción. **[APLICADO 2026-07-14]**
+
+- PARCHE 6 — docs(docs): §4 — el snippet del manifest seguía mostrando rutas planas
+  (`include("corpus_caliber_shared.lua")`) cuando el init real carga
+  `lua/corpus_caliber/<realm>/…` vía los helpers `inc()`/`cs()`. Con §3 ya publicando el
+  patrón real (PARCHE 1), los dos snippets del mismo doc no parecían el mismo archivo.
+  Se alinea con el init: tablas `SHARED`/`SERVER_FILES`/`CLIENT_FILES`, helpers, e
+  includes dentro de `Boot()`. Se conserva el matiz «ilustrativo del mecanismo» (el
+  archivo real intercala `AddCSLuaFile` y la sonda), pero se retira «no la secuencia
+  final»: las rutas y el orden **son** los definitivos, validados contra dependencias
+  reales (`armor` antes que `core`). **[APLICADO 2026-07-14]**
+
+- PARCHE 7 — docs(docs): `CLAUDE.md` — tres falsedades de cardinalidad/estado, gemelas
+  de las ya corregidas en el repo del framework. (a) «una de **seis** raíces» → son
+  **siete** repos (`corpus` + los cinco módulos + `corpus-stalker`, el addon de
+  contenido de la Zona), más `dev/` que no es repo (verificado en
+  `corpus.code-workspace`). (b) Contrato 8: «los **seis** addons montados a la vez» →
+  siete. (c) «remote `origin` cableado localmente, **sin commits todavía**» → falso: el
+  repo tiene commits y está al día con `origin/main` (`git rev-list --left-right
+  --count origin/main...HEAD` → `0 0`). **[APLICADO 2026-07-14]**
+
+Tercera pasada (misma sesión): los verificadores destaparon una capa más profunda. Parte
+cayó **dentro** del doc de arquitectura (el invariante by-ref que ya estaba escrito y este
+doc seguía pidiendo, los identificadores `ADS_*` de un código que ya no existe, y los
+checklists de §7 y §12 con todas las casillas vacías de cosas hechas) y parte **fuera**:
+el roadmap, que es lo que un lector consulta para saber qué falta, seguía presentando como
+inmediata una verificación en juego cerrada el 2026-07-09. Solo docs: sin superficie de
+runtime.
+
+- PARCHE 8 — docs(docs): `caliber_roadmap.txt` §1 — el INMEDIATO era «cerrar la
+  verificación en juego de la migración» y «flipear el parche a `[APLICADO]`». Falso
+  desde el 2026-07-09: el autor corrió la paridad y **todo** el CHANGELOG está en
+  `[APLICADO]` (ver `caliber_estado.md`). El INMEDIATO real de hoy es el **Block 3**
+  (pipeline de armadura de jugador), que estaba enterrado como `[2]` en §2. Se promueve
+  a `[1]` y se renumera §2. **[APLICADO 2026-07-14]**
+
+- PARCHE 9 — docs(docs): `caliber_roadmap.txt` §2 — «El emit se cuelga ahí cuando el
+  módulo consumidor lo necesite»: es **la misma falsedad** que esta sesión ya mató en
+  §9.a de la arquitectura (PARCHE 2), sobreviviendo en el roadmap. El emit **ya existe**
+  (`corpus_caliber_limbs.lua:298`); el pendiente es **enriquecer el payload** y elevarlo
+  a contrato, no agregar el emit. **[APLICADO 2026-07-14]**
+
+- PARCHE 10 — docs(docs): `caliber_roadmap.txt` §0 — «doc canónico compartido por los
+  **seis** repos del ecosistema» → **siete** repos git (`corpus` + los cinco módulos +
+  `corpus-stalker`), más `dev/` que no es repo. Gemela de la ya corregida en `CLAUDE.md`
+  (PARCHE 7). **[APLICADO 2026-07-14]**
+
+- PARCHE 11 — docs(docs): §3 y §11 — el doc decía que el invariante by-ref «hoy no está
+  escrito en ningún doc» y titulaba §11 «Adición **requerida** a `CORPUS_Architecture.md`
+  §3 … cuando se implemente esa primitiva». Falso por partida doble: las 6 primitivas
+  están implementadas y el invariante ya está escrito allá como contrato duro (nota
+  «Invariante del registro», que además cita de vuelta a §3/§11 de este doc) y repetido
+  en la cabecera de `corpus_registry.lua`, que lo cumple (`RegisterModule` guarda `iface`
+  tal cual, `GetModule` la devuelve sin tocar). §11 pasa a pasado: se pidió y **se
+  aplicó**. **[APLICADO 2026-07-14]**
+
+- PARCHE 12 — docs(docs): §9 y §10 — identificadores de código que **ya no existen**:
+  `npc.ADS_HP_*`, `ADS_LastLimbHit`, decal `ADS_Ricochet`. El rename está aplicado
+  (`grep -rn "ADS[._]" lua/` → 0): hoy son `npc.Caliber_HP_*`, `npc.Caliber_LastLimbHit`
+  y `Caliber_Ricochet`. El hecho de fondo (Limbs NPC-only, decal inerte) es cierto y se
+  mantiene — se corrigen **solo** los nombres. Misma clase: el puntero de la deuda del
+  `DNumSlider` apuntaba a `cl_ads_browser.lua`; hoy es `corpus_caliber_browser.lua`
+  ~L1360 (`BuildWLTab`), donde el slider sigue vivo. **[APLICADO 2026-07-14]**
+
+- PARCHE 13 — docs(docs): §7 y §12 — los dos checklists tenían **todas** las casillas en
+  `[ ]`, afirmando que no se hizo nada. Se verificó punto por punto contra el código y el
+  repo (greps de ADS en 0; 6 primitivas presentes; manifest y tabla única aplicados;
+  bloque CONTRACT en el init; `Caliber_EnergyShields_Arquitectura.md` publicado;
+  verificación en juego del 2026-07-09; `caliber_estado.md` y `corpus_estado.md` al día):
+  los 4 + 9 ítems se cumplieron. Ambos pasan a `[x]` y a voz de pasado. **[APLICADO
+  2026-07-14]**
+
+- PARCHE 14 — docs(docs): §2 — «el archivo satélite [`ADS_EnergyShields_Arquitectura.md`]
+  **ni siquiera está disponible** en este espacio de diseño para re-chequear» se lee hoy
+  como que no es consultable. Existe: `dev/legacy/AdvancedDamageSystem 2.0/docs/`. Se
+  acota al chat de diseño original (donde era cierto) y se aclara que hoy sí se puede
+  leer — sin autoridad, pero legible. **[APLICADO 2026-07-14]**
+
+- PARCHE 15 — docs(docs): `caliber_estado.md` — mentira **accionable**: «las carpetas en
+  `garrysmod/addons/` son **copias**, no junctions — re-copiar (o `mklink /J`) tras editar
+  el repo». Son junctions: `Get-Item …\addons\corpus-caliber` → `LinkType: Junction`,
+  `Target: …\VSCode\corpus-caliber` (los siete repos, igual). Seguir la instrucción sería
+  trabajo inútil y, peor, re-copiar encima rompería el montaje. Los repos hermanos ya lo
+  decían bien (`corpus-cargo/docs/CHANGELOG.md`, `corpus-craving/docs/Craving_Architecture.md`
+  §6). Fix quirúrgico: la cláusula vecina —«Sin `addon.json` todavía»— **es cierta** (no hay
+  `addon.json` ni trackeado ni en disco) y se conserva; se reemplaza solo la de las copias
+  por «montados por junction — editar el repo se refleja directo en el juego».
+  **[APLICADO 2026-07-14]**
+
+- PARCHE 16 — docs(docs): **regresión de esta misma pasada.** `Caliber_Architecture.md` §Índice
+  — el PARCHE 13 retituló el encabezado de §12 a «Checklist de cierre de bloque — **completo**»
+  (slug `#12-checklist-de-cierre-de-bloque--completo`, doble guion por el em-dash) pero dejó la
+  entrada del TOC apuntando al ancla vieja `#12-checklist-de-cierre-de-bloque`, que ya no existe:
+  el link del índice no salta a ningún lado. Que fue olvido y no criterio lo prueba el mismo
+  diff, donde la entrada 11 **sí** se actualizó al slug nuevo. Se repasaron las 12 anclas del
+  TOC contra los 12 encabezados `##`: las otras 11 resuelven. **[APLICADO 2026-07-14]**
+
+- PARCHE 17 — docs(docs): `Caliber_EnergyShields_Arquitectura.md` §11 — estado rancio en el
+  único doc que esta pasada no había tocado. El bullet 1 registraba como deuda de limpieza que
+  «los comentarios del código **aún mencionan** que el consumidor de FX llega en el Bloque B»:
+  falso contra el árbol. La migración ya los reescribió — `corpus_caliber_shields.lua:10-11`
+  nombra a `corpus_caliber_shields_cl.lua` como consumidor y `:197` dice que emitir sin él es
+  inocuo. `grep -rni "bloque b" lua/` devuelve **un** hit (`shields.lua:452`) y es otra cosa: la
+  nota histórica del bug del sonido de carga heredado por índice de entidad. El bullet pasa a
+  «deuda SALDADA» con el detalle de qué sobrevive y por qué no cuenta. **[APLICADO 2026-07-14]**
+
+- PARCHE 18 — docs(docs): `CLAUDE.md` §Git/commits — «Alcances de este repo: … `config` (+ `docs`,
+  `chore`)» tergiversa al doc que cita. `caliber_convenciones_commits.txt` define `chore` en §2
+  como **tipo** de commit (junto a feat/fix/refactor/docs/test) y su §3 enumera exactamente 8
+  alcances, sin él: armor, core, limbs, shields, scavenger, browser, config, docs. El propio
+  ejemplo §4.2 del doc lo zanja: `chore(config): añade el manifest de carga` — chore = tipo,
+  config = alcance. Se separan tipos de alcances (como ya lo redacta bien `corpus-cargo/CLAUDE.md`)
+  y se anota la trampa en una línea. **[APLICADO 2026-07-14]**
+
+- PARCHE 19 — docs(docs): `caliber_estado.md` — la cabecera declaraba «Última actualización:
+  2026-07-11» cuando el archivo se editó **hoy**, en esta misma pasada (el fix de junction del
+  PARCHE 15). Los cuatro estado docs hermanos ya llevaban 2026-07-14. Se corrige la fecha y se
+  anota que lo de hoy fue la pasada de veracidad — solo docs y comentarios, sin superficie de
+  runtime, para que la foto no se lea como si el Block 2 se hubiera movido. **[APLICADO
+  2026-07-14]**

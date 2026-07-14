@@ -10,9 +10,11 @@
 --
 --   CALIBER.HealLimbs(npc, amount, target)   -- pools de limbs; medic mods, etc.
 --                                               target: nil|"head"|"arms"|"legs"|"all_limbs"
---   CALIBER.Limbs.*                          -- vacío en Block 2; los eventos de
---                                               daño/limb aterrizan cuando Cortex/
---                                               Coagulant los consuman (§9.a)
+--   CALIBER.Limbs.*                          -- vacío en Block 2: sin superficie de
+--                                               contrato para eventos de daño/limb.
+--                                               Existe hook.Run("Caliber_LimbsUpdated",
+--                                               npc, reason), heredado de ADS, pero es
+--                                               off-contract y sin consumidor (§9.a)
 -- ============================================================
 
 -- ============================================================

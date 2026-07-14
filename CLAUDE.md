@@ -30,7 +30,9 @@ Comentarios y mensajes de commit en **español**; los `<tipo>` de commit van en 
 
 ## El workspace multi-repo
 
-Este repo (`corpus-caliber/`) es una de seis raíces del workspace `corpus.code-workspace`. La raíz `corpus/` es el framework del que todos hard-dependen; las otras cuatro (`corpus-cortex/`, `corpus-coagulant/`, `corpus-craving/`, `corpus-cargo/`) son módulos hermanos. La fuente de la migración vive fuera de todo repo git, en `dev/legacy/AdvancedDamageSystem 2.0/` (tag `v1.0`, congelado — nunca se le retro-porta nada).
+Este repo (`corpus-caliber/`) es una de las **siete** raíces git del workspace `corpus.code-workspace`. La raíz `corpus/` es el framework del que todos hard-dependen; otras cuatro (`corpus-cortex/`, `corpus-coagulant/`, `corpus-craving/`, `corpus-cargo/`) son módulos hermanos. La séptima, `corpus-stalker/`, no es un módulo sino el **addon de contenido** de S.T.A.L.K.E.R. (anomalías, artefactos, PDA, detectores, defs de NPC e ítems): consumidor puro — detecta a los módulos en runtime y nada de su contenido sube acá.
+
+Hay además una carpeta `dev/` en el workspace que **no es un repo** (fuera de todos los git, nunca se publica). Ahí vive la fuente de la migración: `dev/legacy/AdvancedDamageSystem 2.0/` (tag `v1.0`, congelado — nunca se le retro-porta nada).
 
 ## Mapa de archivos
 
@@ -59,7 +61,7 @@ Un **manifest de carga explícito** (`corpus_caliber_init.lua`, único archivo e
 5. **UI vía la primitiva.** Una sola entrada en el menú Q: `Corpus.UI.RegisterTab("caliber", "Caliber", fn)` (Utilities → Corpus → Caliber). El browser por-NPC se abre por botón/concommand, no como menú propio.
 6. **Log vía la primitiva.** Toda salida de consola va por `Corpus.Log("caliber", ...)` → prefijo `[Corpus:caliber]`.
 7. **Contrato público mínimo.** Solo `CALIBER.HealLimbs` (y a futuro `CALIBER.Limbs.*` + eventos de daño/limb) es superficie pública. El resto cuelga de la tabla pero es off-contract **por convención**, documentado en el bloque CONTRACT de `corpus_caliber_init.lua` (§8).
-8. **Prefijo de archivo por módulo:** `corpus_caliber_*.lua` — evita colisión cuando los seis addons están montados a la vez.
+8. **Prefijo de archivo por módulo:** `corpus_caliber_*.lua` — evita colisión cuando los siete addons están montados a la vez.
 
 ## Deuda heredada — viaja sin tocar (§10 de la arquitectura)
 
@@ -77,8 +79,8 @@ Al cerrar un cambio con superficie de runtime: refresca [`docs/caliber_estado.md
 
 ## Git / commits
 
-Sigue [`docs/caliber_convenciones_commits.txt`](docs/caliber_convenciones_commits.txt): `<tipo>(<alcance>): <descripción>` — tipo en inglés, descripción en español, minúscula inicial, sin punto final, imperativo. Alcances de este repo: `armor`, `core`, `limbs`, `shields`, `scavenger`, `browser`, `config` (+ `docs`, `chore`).
+Sigue [`docs/caliber_convenciones_commits.txt`](docs/caliber_convenciones_commits.txt): `<tipo>(<alcance>): <descripción>` — tipo en inglés, descripción en español, minúscula inicial, sin punto final, imperativo. **Tipos** (§2): `feat`, `fix`, `refactor`, `docs`, `chore`, `test`. **Alcances** de este repo (§3, el doc manda): `armor`, `core`, `limbs`, `shields`, `scavenger`, `browser`, `config`, `docs`. Ojo: `chore` **no** es un alcance sino un tipo — el ejemplo §4.2 del doc es `chore(config): añade el manifest de carga`.
 
-**Este repo está publicado en GitHub** (`github.com/Sepuldosky/corpus-caliber`, público, remote `origin` cableado localmente, **sin commits todavía** hasta esta migración). No hagas commit ni push salvo que se pida explícitamente.
+**Este repo está publicado en GitHub** (`github.com/Sepuldosky/corpus-caliber`, público, remote `origin` cableado). Ya lleva commits — la migración del Block 2 está pusheada y el repo está **al día con `origin/main`**. No hagas commit ni push salvo que se pida explícitamente.
 
 **No agregues el trailer `Co-Authored-By: Claude` (ni ninguna atribución de co-autoría a Claude/Anthropic) en los mensajes de commit.** Esto sobreescribe el comportamiento por defecto del harness.

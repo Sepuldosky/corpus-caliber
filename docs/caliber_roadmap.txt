@@ -18,7 +18,8 @@ y el criterio de entrada de cada tramo.
 
 Metodología para ejecutar cada tramo: ../corpus/docs/corpus_flujo_trabajo.txt
 (planificación densa + vertical slice + orden de parches) — doc canónico compartido
-por los seis repos del ecosistema.
+por los siete repos git del ecosistema (corpus + los cinco módulos + corpus-stalker;
+dev/ no es repo).
 
 
 1. INMEDIATO
@@ -27,34 +28,34 @@ por los seis repos del ecosistema.
   [HECHO] Block 2 — migración ADS 2.0 → Caliber. Rename mecánico de namespace +
       wiring sobre las 6 primitivas de Corpus, SIN reescritura de dominio. Cerrado:
       manifest de carga, tabla única registrada, persistencia/net/log/UI vía
-      primitivas, doc de escudos reconciliado. Ver CHANGELOG.md y Caliber_Architecture.md.
-      Verificación en juego (paridad vs ADS v1.0): la corre el autor.
+      primitivas, doc de escudos reconciliado. La verificación en juego (paridad vs
+      ADS 2.0 v1.0, con VJ Base + ARC9 Darsu) la corrió el autor el 2026-07-09: todo
+      el CHANGELOG quedó en [APLICADO]. Ver CHANGELOG.md y Caliber_Architecture.md.
 
-  [1] Cerrar la verificación en juego de la migración (PASO 6 del flujo): paridad de
-      comportamiento contra ADS 2.0 v1.0 con VJ Base + ARC9 Darsu. Al confirmar,
-      flipear el parche de migración a [APLICADO] en el CHANGELOG.
-
-
-2. SIGUIENTE — orden sugerido
---------------------------------
-
-  [2] Block 3 de Caliber — PIPELINE DE ARMADURA DE JUGADOR. Alcance NUEVO, no cubierto
+  [1] Block 3 de Caliber — PIPELINE DE ARMADURA DE JUGADOR. Alcance NUEVO, no cubierto
       por ADS (que era NPC-only). Backend nuevo, no una pestaña. Vuelve agnóstica la
       Limbs API (hoy NPC-only, §9.b de la arquitectura): HealLimbs y los pools dejan de
       asumir npc.Caliber_HP_* / IsNPC(). Se documenta como sección nueva de
       Caliber_Architecture.md al cerrar su diseño.
 
-  [3] Superficie de eventos daño/limb hacia Cortex/Coagulant (deferred, §9.a). El
-      choke point ya está aislado: ApplyLimbDebuffs(npc, reason, dmginfo) en
-      corpus_caliber_limbs.lua. El emit se cuelga ahí cuando el módulo consumidor lo
-      necesite — es una función nueva sobre un punto ya aislado, no un refactor. No se
-      diseña a ciegas: aterriza cuando Cortex entre en su Block.
 
-  [4] Boundary-debt a revisar (§9.c): el comportamiento de scavenger-pickup (elegir
+2. SIGUIENTE — orden sugerido
+--------------------------------
+
+  [2] Superficie de eventos daño/limb hacia Cortex/Coagulant (deferred, §9.a). El emit
+      YA EXISTE: ApplyLimbDebuffs(npc, reason, dmginfo) cierra con
+      hook.Run("Caliber_LimbsUpdated", npc, reason or "damage") en
+      corpus_caliber_limbs.lua:298 (reason ∈ spawn|damage|heal), heredado de ADS y hoy
+      sin consumidor. El pendiente NO es agregar el emit sino ENRIQUECER SU PAYLOAD
+      —hoy es (npc, reason): sin zona, sin daño al pool, sin dmginfo— y recién ahí
+      elevarlo a contrato (§8): tal como está es un aviso de refresh, no un evento de
+      daño. No se diseña a ciegas: aterriza cuando Cortex entre en su Block.
+
+  [3] Boundary-debt a revisar (§9.c): el comportamiento de scavenger-pickup (elegir
       target, animación, timing) huele a comportamiento NPC → territorio de Cortex. NO
       se decide ahora; se re-homea SOLO si se confirma como behavior al diseñar Cortex.
 
-  [5] Semántica del arma en mano (cross-ref, deferred): persistencia de munición del
+  [4] Semántica del arma en mano (cross-ref, deferred): persistencia de munición del
       cargador, sistema de cargadores/munición (ARC9 custom vs HL2, con toggle),
       condición→traba de disparo. Son hallazgos in-game del autor (2026-07-11) que
       caen en el dominio de Caliber pero se capturaron ENTEROS en cargo_roadmap.txt
