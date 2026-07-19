@@ -21,6 +21,11 @@ Metodología para ejecutar cada tramo: ../corpus/docs/corpus_flujo_trabajo.txt
 por los siete repos git del ecosistema (corpus + los cinco módulos + corpus-stalker;
 dev/ no es repo).
 
+NOTA DE LECTURA (cita FLU-22 y el voto del autor del 2026-07-19): este doc es
+INTENCIÓN PURA, no autoridad. Los IDs que aparecen acá son CITAS a normas cuya sede
+está en otro lado — este roadmap no acuña ninguna. Un "limpio" del gate de coherencia
+sobre este archivo se reporta NO-AUDITABLE POR DISEÑO.
+
 
 1. INMEDIATO
 --------------
@@ -35,8 +40,11 @@ dev/ no es repo).
   [1] Block 3 de Caliber — PIPELINE DE ARMADURA DE JUGADOR. Alcance NUEVO, no cubierto
       por ADS (que era NPC-only). Backend nuevo, no una pestaña. Vuelve agnóstica la
       Limbs API (hoy NPC-only, §9.b de la arquitectura): HealLimbs y los pools dejan de
-      asumir npc.Caliber_HP_* / IsNPC(). Se documenta como sección nueva de
-      Caliber_Architecture.md al cerrar su diseño.
+      asumir npc.Caliber_HP_* / IsNPC(). Es exactamente lo que CAL-22 declara sin
+      cumplir — esa norma existe para que el contrato de CORPUS_Architecture.md §4 no
+      se lea como servido mientras este tramo esté abierto. Se documenta como sección
+      nueva de Caliber_Architecture.md al cerrar su diseño. Dos módulos esperan este
+      tramo: Coagulant (hit-location enriquecido, hoy degradado por COA-7) y Cortex.
 
 
 2. SIGUIENTE — orden sugerido
@@ -54,6 +62,8 @@ dev/ no es repo).
   [3] Boundary-debt a revisar (§9.c): el comportamiento de scavenger-pickup (elegir
       target, animación, timing) huele a comportamiento NPC → territorio de Cortex. NO
       se decide ahora; se re-homea SOLO si se confirma como behavior al diseñar Cortex.
+      Es el patrón que CRG-47 nombra: el dueño de una frontera se decide EN DISEÑO, y
+      la deuda se declara ahora para no perderla.
 
   [4] Semántica del arma en mano (cross-ref, deferred): persistencia de munición del
       cargador, sistema de cargadores/munición (ARC9 custom vs HL2, con toggle),
@@ -64,10 +74,11 @@ dev/ no es repo).
       acá (regla del flujo §5): ver ese doc.
 
 
-3. DEUDA HEREDADA (viaja sin tocar — §10 de la arquitectura)
+3. DEUDA HEREDADA (viaja sin tocar — §10 de la arquitectura, cita CAL-21)
 --------------------------------------------------------------
 
-No se aborda en el rename; se corrige cuando se vuelva a tocar esa parte, no antes:
+No se aborda en el rename; se corrige cuando se vuelva a tocar esa parte, no antes.
+Los cuatro ítems migran con el MISMO comportamiento (bugueado) que tenían en ADS:
   - Decal Caliber_Ricochet inerte (Block FX) — requiere trabajo del pipeline de decals
     del engine HL2 (C++).
   - DNumSlider en tab Limbs/WL del browser — no migrado al patrón de fila manual.

@@ -371,3 +371,28 @@ superficie de runtime, y **ningún check de planilla nace de esta tanda** (FLU-3
   Craving; Caliber lo tomará cuando deje de ser hoja en el grafo. **[APLICADO 2026-07-19]**
 
 Verificación: checker en verde + suite 12/12. Sin superficie de runtime.
+
+---
+
+## PARCHES DE sesión D-13: pre-2.º COMPLETO — 2026-07-19
+
+Parte de la tanda multi-repo guiada por `dev/PROMPT_d12_d13_segundo_completo.txt`, que cerró
+las deudas **D-12** y **D-13** del registro. Acá lo que toca a este repo. Solo prosa: **ninguna
+norma cambió de contenido**.
+
+- PARCHE 1 — **`CAL-23` acuñado: la tabla de alcances de `caliber_convenciones_commits.txt`
+  §3 es norma y ahora tiene ID.** Ese doc era uno de los **10 docs ciegos** del hueco H1 del
+  COMPLETO: 144 líneas sin una sola etiqueta, sobre las que un gate que cruza IDs no salía
+  limpio — salía **ciego**. La §3 es por-repo y jamás se hereda del framework (cita GIT-6);
+  el `CLAUDE.md` la resume y **el doc manda**. Los 8 alcances (`armor`, `core`, `limbs`,
+  `shields`, `scavenger`, `browser`, `config`, `docs`) se derivaron del propio doc, no del
+  resumen. **[APLICADO 2026-07-19]**
+- PARCHE 2 — **`caliber_roadmap.txt` pasa de ciego a citante**, sin acuñar nada: por voto del
+  autor un roadmap es **intención pura** y no puede ser sede. Lleva ahora una NOTA DE LECTURA
+  que lo declara NO-AUDITABLE POR DISEÑO para el cruce de IDs, y cita las normas que ya
+  gobiernan sus tramos: el Block 3 cita **CAL-22** (la Limbs API es agnóstica por diseño pero
+  NPC-only en la práctica — esa norma existe justamente para que este tramo no se lea como
+  servido) y **COA-7**; el boundary-debt de scavenger cita **CRG-47** (el dueño de una
+  frontera se decide EN DISEÑO); la deuda heredada cita **CAL-21**. **[APLICADO 2026-07-19]**
+
+Verificación: checker en verde sobre 207 IDs + suite 12/12. Sin superficie de runtime.
