@@ -30,7 +30,7 @@
 **Es.** Rename mecánico de ADS 2.0 → Caliber: namespace, rutas de persistencia, convención de archivos, wiring sobre las 6 primitivas de Corpus. Se verifica por **paridad de comportamiento** contra el snapshot congelado (§2), no por revisión de diseño — el diseño de dominio (armor, limbs, shields, scavenger) ya está cerrado y probado en ADS.
 
 **No es.**
-- Reescritura ni mejora de ningún subsistema. Los principios de dominio ya fijados en ADS (EFT gana la jerarquía del extractor, resolver puro, armadura como pre-filtro delante de limbs) se preservan intactos.
+- Reescritura ni mejora de ningún subsistema. Los principios de dominio ya fijados en ADS (EFT gana la jerarquía del extractor, resolver puro, y la cadena completa del pipeline: **escudo como pre-filtro delante de la armadura — CAL-13 —, armadura delante de limbs**: Hit → escudo → armadura → limbs) se preservan intactos.
 - El pipeline de armadura de jugador — backend nuevo, Block 3 propio.
 - Fix de ninguna deuda conocida (§10) — viaja tal cual.
 - Diseño de la superficie de eventos daño/limb hacia Cortex/Coagulant — deferred, ver §9.a.
@@ -47,7 +47,7 @@ Doc satélite: **`ADS_EnergyShields_Arquitectura.md` NO es autoritario al 100%**
 
 **Consecuencia para la migración:** `Caliber_EnergyShields_Arquitectura.md` no se copia ciego de ningún doc existente (ni el satélite viejo, ni §19 tal cual). Se **reconcilia** contra el código real (`ads_shields.lua` + `cl_ads_shields.lua`) al momento de la migración — mismo principio "el código manda" ya establecido en `corpus_flujo_trabajo.txt` PASO 2 (precedente citado ahí: un doc que decía "pendiente" cuando el código ya estaba aplicado). Acá es el caso inverso — un doc de diseño que quedó atrás de un código que evolucionó — pero la regla es la misma.
 
-**El legacy ADS queda intacto, congelado en `dev/legacy/AdvancedDamageSystem 2.0/`** — carpeta fuera de todos los repos git del workspace (no es un repo propio), con su nombre y namespace original (`ADS`), tag `v1.0`. Ningún fix futuro se retro-porta ahí; todo fix a partir de ahora es sobre Caliber.
+**CAL-11 — El legacy ADS queda intacto, congelado en `dev/legacy/AdvancedDamageSystem 2.0/`** — carpeta fuera de todos los repos git del workspace (no es un repo propio), con su nombre y namespace original (`ADS`), tag `v1.0`. Ningún fix futuro se retro-porta ahí; todo fix a partir de ahora es sobre Caliber.
 
 ---
 
@@ -57,7 +57,7 @@ Choque de reglas a resolver: `CORPUS_Architecture.md` §6 exige un único global
 
 **Solución:** una tabla registrada temprano, poblada por side-effect en cada archivo posterior. Todos los archivos cachean la misma referencia — en Lua las tablas son tipos por referencia, no hay copia.
 
-**Cuándo se registra — el init NO aborta con `error()`.** Gmod ejecuta `lua/autorun/` en orden alfabético **fusionado entre addons**: `corpus_caliber_init.lua` ordena ANTES que `corpus_data.lua`/`corpus_registry.lua`, así que en una carga de mapa normal **`Corpus` todavía no existe** cuando corre el init. Un `error()` en file-scope no protege de nada — solo consigue que el módulo no arranque nunca (falla silenciosa de módulo, no crash del server). De ahí el patrón real: **sonda + boot diferido**. `AddCSLuaFile` queda en file-scope (no depende de Corpus); el registro y el manifest viven en `Boot()`, que corre inmediato si la sonda `CorpusListo()` pasa (lua refresh, carga tardía) o se difiere al hook `"Initialize"` — que corre en **ambos realms**, después de TODO `autorun` y antes de `InitPostEntity`, conservando las garantías: los tabs de UI llegan antes de `PopulateToolMenu`, los net strings antes de que conecte un cliente, y los hooks `InitPostEntity` de `core` antes de que la barrera dispare. Si tras `Initialize` sigue sin haber framework: **falla ruidosa por `MsgN`** — no `Corpus.Log`, porque Corpus no existe.
+**Cuándo se registra (CAL-1) — el init NO aborta con `error()`.** Gmod ejecuta `lua/autorun/` en orden alfabético **fusionado entre addons**: `corpus_caliber_init.lua` ordena ANTES que `corpus_data.lua`/`corpus_registry.lua`, así que en una carga de mapa normal **`Corpus` todavía no existe** cuando corre el init. Un `error()` en file-scope no protege de nada — solo consigue que el módulo no arranque nunca (falla silenciosa de módulo, no crash del server). De ahí el patrón real: **sonda + boot diferido**. **(CAL-2)** `AddCSLuaFile` queda en file-scope (no depende de Corpus); el registro y el manifest viven en `Boot()`, que corre inmediato si la sonda `CorpusListo()` pasa (lua refresh, carga tardía) o se difiere al hook `"Initialize"` — que corre en **ambos realms**, después de TODO `autorun` y antes de `InitPostEntity`, conservando las garantías: los tabs de UI llegan antes de `PopulateToolMenu`, los net strings antes de que conecte un cliente, y los hooks `InitPostEntity` de `core` antes de que la barrera dispare. **(CAL-4)** Si tras `Initialize` sigue sin haber framework: **falla ruidosa por `MsgN`** — no `Corpus.Log`, porque Corpus no existe.
 
 ```lua
 -- corpus_caliber_init.lua — único archivo en lua/autorun/ (ver §4)
@@ -69,9 +69,9 @@ if SERVER then
     for _, f in ipairs(CLIENT_FILES) do cs(f) end
 end
 
--- Hard-dep: Caliber depende de Corpus. No se asume que ya cargó; se detecta. La sonda
--- cubre las primitivas que los sub-archivos usan en file-scope (Data/Net/Log en server,
--- UI en client), no solo el registro.
+-- Hard-dep: Caliber depende de Corpus. No se asume que ya cargó; se detecta. (CAL-3) La
+-- sonda cubre las primitivas que los sub-archivos usan en file-scope (Data/Net/Log en
+-- server, UI en client), no solo el registro.
 local function CorpusListo()
     return Corpus ~= nil and Corpus.RegisterModule ~= nil and Corpus.Data ~= nil
         and Corpus.Net ~= nil and Corpus.Log ~= nil and (SERVER or Corpus.UI ~= nil)
@@ -99,7 +99,7 @@ else
 end
 ```
 
-La iface **nunca** va inline en el `RegisterModule`: se registra una tabla vacía y los sub-archivos la pueblan por side-effect. **Este es el patrón template para los otros cuatro módulos del ecosistema** — lo pagó Caliber en juego (ver `CHANGELOG.md`, sesión «Fix de arranque», 2026-07-09).
+**CAL-5 —** La iface **nunca** va inline en el `RegisterModule`: se registra una tabla vacía y los sub-archivos la pueblan por side-effect. **Este es el patrón template para los otros cuatro módulos del ecosistema** — lo pagó Caliber en juego (ver `CHANGELOG.md`, sesión «Fix de arranque», 2026-07-09).
 
 ```lua
 -- cualquier archivo posterior del módulo, ej. corpus_caliber_armor.lua
@@ -118,9 +118,9 @@ La superficie pública (§8) no es una tabla aparte — es el **subconjunto docu
 
 ADS depende hoy de **orden alfabético implícito** — cita textual del propio código: `ads_limbs.lua` L2, *"Loaded after ads_core.lua (alphabetical: ads_core < ads_limbs)"*. Es frágil por diseño: se rompe en silencio el día que se agrega un archivo sin respetar la convención, y falla en runtime con `nil`, no en parse.
 
-Se reemplaza por un **manifest explícito** de `include()` en el init, en orden estricto y documentado:
+**CAL-7 —** Se reemplaza por un **manifest explícito** de `include()` en el init, en orden estricto y documentado:
 
-Los sub-archivos viven **fuera** de `lua/autorun/`, en `lua/corpus_caliber/<realm>/`: si estuvieran en `autorun/server|client` se auto-ejecutarían y duplicarían la carga, rompiendo el orden que este manifest existe para fijar. El init es el único loader; el toolgun queda en `stools/` (lo carga el sistema de `gmod_tool`, no el manifest).
+**CAL-6 —** Los sub-archivos viven **fuera** de `lua/autorun/`, en `lua/corpus_caliber/<realm>/`: si estuvieran en `autorun/server|client` se auto-ejecutarían y duplicarían la carga, rompiendo el orden que este manifest existe para fijar. El init es el único loader; el toolgun queda en `stools/` (lo carga el sistema de `gmod_tool`, no el manifest).
 
 ```lua
 -- corpus_caliber_init.lua
@@ -159,7 +159,7 @@ El snippet es **ilustrativo del mecanismo**, no una transcripción literal del i
 
 ## 5. Ventana de carga — regla de invocación
 
-Con manifest síncrono ordenado, un archivo puede invocar funciones de archivos **anteriores** en file-scope (ya poblados). La regla real es más angosta: **nunca invocar hacia adelante** en file-scope.
+Con manifest síncrono ordenado, un archivo puede invocar funciones de archivos **anteriores** en file-scope (ya poblados). La regla real es más angosta (CAL-8): **nunca invocar hacia adelante** en file-scope.
 
 ADS ya respeta esto en la práctica: los cruces entre subsistemas van dentro de hooks/timers con guarda de existencia —
 
@@ -169,7 +169,7 @@ if ADS.MarkWeaponAsDroppedBy then
 end
 ```
 
-Ese guard sobrevive el rename intacto (`CALIBER.MarkWeaponAsDroppedBy`). No es solo protección de orden de carga — cubre también el caso de instalación parcial (subsistema deshabilitado o archivo ausente), así que se mantiene aun con el manifest ya fijo.
+Ese guard sobrevive el rename intacto (`CALIBER.MarkWeaponAsDroppedBy`). **(CAL-9)** No es solo protección de orden de carga — cubre también el caso de instalación parcial (subsistema deshabilitado o archivo ausente), así que se mantiene aun con el manifest ya fijo.
 
 ---
 
@@ -178,10 +178,10 @@ Ese guard sobrevive el rename intacto (`CALIBER.MarkWeaponAsDroppedBy`). No es s
 | Subsistema ADS | Antes | Primitiva Corpus | Después |
 |---|---|---|---|
 | Net strings | `util.AddNetworkString("ads_x")` | `Corpus.Net.Register` | `Corpus.Net.Register("caliber", "x")` → `"corpus_caliber_x"` |
-| Persistencia | `data/ads/ads_config.json` (`whitelist`, `blacklist`, `armor`, `curated_weapons`, `ammo_fallback`) | `Corpus.Data.Save/Load` | `Corpus.Data.Save("caliber", "config", tbl)` → `data/corpus/caliber/config.json`. **Clean-slate**: sin importador desde el JSON viejo, el usuario reconfigura. No vale la pena un migrador one-time para un addon que recién nace. |
+| Persistencia | `data/ads/ads_config.json` (`whitelist`, `blacklist`, `armor`, `curated_weapons`, `ammo_fallback`) | `Corpus.Data.Save/Load` | `Corpus.Data.Save("caliber", "config", tbl)` → `data/corpus/caliber/config.json`. Segunda key: `scav_weights` (pesos del scavenger; net `corpus_caliber_save_scav_weight` / `request_scav_weights`). **Clean-slate**: sin importador desde el JSON viejo, el usuario reconfigura. No vale la pena un migrador one-time para un addon que recién nace. |
 | Log | `print("[ADS] ...")` | `Corpus.Log` | `Corpus.Log("caliber", ...)` → `"[Corpus:caliber] ..."` |
-| UI shell | Menú Q propio "ADS Configuration" (6 tabs: Armor / Limbs-WL / Weapons / Energy Shield / Scavenger / General) | `Corpus.UI.RegisterTab` | `Corpus.UI.RegisterTab("caliber", "Caliber", fn)` — los 6 tabs quedan como sub-tabs internos de esa entrada |
-| Ready barrier | N/A — ADS era autocontenido, no lo necesitaba | `Corpus.OnReady` | No se usa en este bloque. Caliber es hoja en el grafo (§2 de `CORPUS_Architecture.md`). Primer consumo real: Block de Cortex, para wiring de soft-dep |
+| UI shell | Menú Q propio "ADS Configuration" (6 tabs: Armor / Limbs-WL / Weapons / Energy Shield / Scavenger / General) | `Corpus.UI.RegisterTab` | `Corpus.UI.RegisterTab("caliber", "Caliber", fn)` — la entrada del menú Q apila los 4 paneles de convars (Armor/Limbs/Shields/Scavenger) + el botón que abre el **browser por-NPC** (concommand `caliber_browser`), y es en ese browser donde viven los 6 sub-tabs |
+| Ready barrier | N/A — ADS era autocontenido, no lo necesitaba | `Corpus.OnReady` | No se usa en este bloque. Caliber es hoja en el grafo (§2 de `CORPUS_Architecture.md`). El primer consumo real lo pagó **Cargo en el Block 1**, y hoy lo usan también **Coagulant** y **Craving**; Caliber lo tomará cuando deje de ser hoja en el grafo |
 | Registro | Global `ADS.*` | `Corpus.RegisterModule` / `Corpus.GetModule` | Ver §3 |
 
 ---
@@ -206,6 +206,8 @@ Las cuatro clases quedaron migradas; los greps se corrieron sobre `lua/` y dan *
 - [x] `grep -rn "ADS_"` → 0 resultados fuera de comentarios históricos explícitos ("migrado desde ADS 2.0")
 - [x] `grep -rn "\"ads_"` → 0 resultados (convars, net strings, data paths)
 - [x] Ningún archivo del repo referencia `data/ads/` (path viejo)
+
+**Residual declarado (5.ª clase, fuera del alcance del rename):** los **paths de assets** conservan la carpeta `ads/` — `sound/ads/*.wav` (`core`, `shields`) y `materials/ads/mat_*` (`browser`). Renombrarlos exige mover los assets y re-referenciar cada ruta, no un find-replace de Lua; queda anotado como residual conocido, no como rename pendiente.
 
 ---
 
@@ -246,7 +248,7 @@ El trabajo pendiente, entonces, **no es agregar el emit** sino **enriquecer su p
 
 ### 9.b — Agnosticismo NPC/jugador de `Limbs`
 
-`CORPUS_Architecture.md` §4 describe la `Limbs API` como agnóstica a si la entidad es NPC o jugador. Eso es **aspiracional** en este bloque: `HealLimbs` hoy es NPC-only (`npc.Caliber_HP_*`, chequeo `IsNPC()`). Se vuelve agnóstica recién cuando el pipeline de armadura de jugador (Block siguiente de Caliber) aterrice el lado jugador. Se anota para que §4 no se lea como cumplida post-migración — se cumple por diseño, NPC-only en práctica hasta entonces.
+**(CAL-22)** `CORPUS_Architecture.md` §4 describe la `Limbs API` como agnóstica a si la entidad es NPC o jugador. Eso es **aspiracional** en este bloque: `HealLimbs` hoy es NPC-only (`npc.Caliber_HP_*`, chequeo `IsNPC()`). Se vuelve agnóstica recién cuando el pipeline de armadura de jugador (Block siguiente de Caliber) aterrice el lado jugador. Se anota para que §4 no se lea como cumplida post-migración — se cumple por diseño, NPC-only en práctica hasta entonces.
 
 ### 9.c — Boundary-debt: scavenger + FX
 
@@ -258,7 +260,7 @@ Ambos se quedan en Caliber en este bloque: scavenger está acoplado al drop de `
 
 ## 10. Deuda heredada — viaja sin tocar
 
-Ninguno de estos ítems se aborda en este bloque. Se re-registran en el debt de Caliber, exactamente como estaban en ADS:
+**CAL-21 —** Ninguno de estos ítems se aborda en este bloque. Se re-registran en el debt de Caliber, exactamente como estaban en ADS:
 
 - **Decal `Caliber_Ricochet` inerte** (Block FX) — aceptado por el autor. Requiere trabajo a nivel del pipeline de decals del engine HL2 (C++), fuera de alcance de un rename Lua.
 - **`DNumSlider` en tab Limbs/WL** (post-rename: `corpus_caliber_browser.lua` ~L1360, en `BuildWLTab`) — no migrado al patrón de fila manual (`DPanel`+`DLabel`+`DSlider`+`DTextEntry`) que ya usan Armor tab, toolgun y Weapons tab. Viaja tal cual; se corrige si se vuelve a tocar esa parte del browser, no durante el rename.
@@ -271,7 +273,7 @@ Ninguno de estos ítems se aborda en este bloque. Se re-registran en el debt de 
 
 Este documento (Caliber) depende de un invariante del **framework**, no del módulo. Se pidió desde acá porque quien implementara las 6 primitivas de Corpus lo necesitaba explícito **antes** de escribir código, no como descubrimiento posterior al integrar Caliber:
 
-> `Corpus.RegisterModule(name, iface)` y `Corpus.GetModule(name)` deben guardar y devolver la **misma tabla por referencia**, sin copia ni normalización. Todo el patrón de namespace de §3 de este documento depende de que sea así — si el registro alguna vez introduce un deep-copy defensivo, el patrón "tabla única poblada por side-effect" se cae en silencio.
+> (cita COR-7 — su sede es `CORPUS_Architecture.md` §3) `Corpus.RegisterModule(name, iface)` y `Corpus.GetModule(name)` deben guardar y devolver la **misma tabla por referencia**, sin copia ni normalización. Todo el patrón de namespace de §3 de este documento depende de que sea así — si el registro alguna vez introduce un deep-copy defensivo, el patrón "tabla única poblada por side-effect" se cae en silencio.
 
 **Ya está aplicado.** Las 6 primitivas están implementadas y el invariante quedó escrito como contrato duro en `CORPUS_Architecture.md` §3 —nota «Invariante del registro (contrato duro)», que cita de vuelta a §3 y §11 de este documento— y repetido en el comentario de cabecera de `corpus_registry.lua`, que lo cumple: `RegisterModule` guarda `iface` tal cual y `GetModule` la devuelve sin tocar.
 

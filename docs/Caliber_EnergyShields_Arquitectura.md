@@ -41,7 +41,7 @@
 ## 1. Alcance y modelo
 
 Escudo de energía **por NPC**, estilo Halo: un pool que absorbe daño, colapsa al
-agotarse, y se recarga tras un delay si no recibe hits. **No es zonal** — es un único
+agotarse, y se recarga tras un delay si no recibe hits. **CAL-14 — No es zonal**: es un único
 pool global por entidad (`npc.Caliber_Shield`, una tabla por NPC). Assets y concepto
 rescatados de "Halo Energy Shield" (Speedy Von Gofast) y "Goofy Armor Effect" (sora1d);
 el wiring de red original era single-player y se reescribió multi-NPC en ADS.
@@ -68,7 +68,7 @@ Think itera SOLO los registrados — la recarga completa produce cero paquetes d
 
 ## 2. Pipeline: dónde entra el escudo
 
-El escudo es un **pre-filtro global delante de la armadura**, que a su vez está delante
+**CAL-13 —** El escudo es un **pre-filtro global delante de la armadura**, que a su vez está delante
 de limbs:
 
 ```
@@ -96,7 +96,7 @@ además instalación parcial.
 
 ## 3. Registry de tipos
 
-Agregar un escudo nuevo = una entrada en `CALIBER.ShieldTypes` (server, mecánica +
+**CAL-19 —** Agregar un escudo nuevo = una entrada en `CALIBER.ShieldTypes` (server, mecánica +
 defaults + sonidos) **y** la entrada espejo en `Caliber_ShieldFX.Types`
 (`corpus_caliber_shields_cl.lua`, visuales). **MISMAS KEYS en ambas tablas.** La
 mecánica NO cambia entre tipos: solo assets y defaults.
@@ -130,7 +130,7 @@ horneado del tipo.
    descartar un stash ARC9 legítimo por un hit vacío.)
 2. **Bypass melee** (`DMG_SLASH | DMG_CLUB`) — el hit pasa entero pero SÍ frena la regen.
    `false, {reason="bypass"}`.
-3. **Flags de arma** — `plasma`/`emp` se leen de `CALIBER.CuratedWeapons[wep:GetClass()]`
+3. **CAL-17 — Flags de arma:** `plasma`/`emp` se leen de `CALIBER.CuratedWeapons[wep:GetClass()]`
    (tabla curada, NO del extractor: el arma EFT conserva su tuple balístico intacto).
 4. **Escudo caído** (`hp<=0`) — el hit pasa entero; `emp` extiende el lockout igual.
    `false, {reason="down"}`.
@@ -149,7 +149,7 @@ Think), por eso la predicción coincide con lo que hace `ProcessShield`.
 
 ## 5. No-overflow y bypass por damage type
 
-**No-overflow (canon):** cuando el escudo absorbe, consume el hit **COMPLETO** — hace
+**No-overflow (canon; cita CAL-15 — su sede es `corpus_caliber_shields.lua:323`):** cuando el escudo absorbe, consume el hit **COMPLETO** — hace
 `di:SetDamage(0)` y el caller DEBE early-return del hook. El exceso de daño sobre el
 pool NO pasa a la armadura. Consecuencia: con escudo arriba, la armadura no gasta
 durabilidad y `ProcessLimbHit` no corre → **cero debuffs de extremidad con escudo
@@ -157,7 +157,7 @@ arriba**. El hit absorbido recibe supresión de sangre (rama 1 de `ApplyBlockedH
 con `bloodOnly=true`: sin chispa ni ricochet metálicos — el escudo tiene su propio flash
 de energía).
 
-**Bypass por damage type (§4 del diseño):** SOLO melee (`DMG_SLASH`, `DMG_CLUB`) salta el
+**CAL-16 — Bypass por damage type (§4 del diseño):** SOLO melee (`DMG_SLASH`, `DMG_CLUB`) salta el
 pool. Blast/fuego/etc. drenan normal vía `shield_damage_mult`. El bypass igual **frena
 la regen** (cualquier hit que afecte al escudo resetea el timer de recarga).
 
@@ -241,7 +241,8 @@ Concommands de debug (efímeros, sin tocar whitelist/JSON): `caliber_shield_give
 ## 10. Contrato de configuración por-NPC
 
 La autoridad de un escudo es el **whitelist entry** del NPC (`InitShield` lo resuelve vía
-`GetOverrideForEnt`, key de spawnmenu > classname). Sin entry o sin `shield_type` válido
+`GetOverrideForEnt`, key de spawnmenu > classname — cita CAL-20, su sede es
+`corpus_caliber_core.lua:339`). Sin entry o sin `shield_type` válido
 → sin escudo. `InitShield` es idempotente (re-init resetea el pool a full).
 
 Campos del entry (saneados en `Sanitize` de `corpus_caliber_core.lua`; **gate maestro =

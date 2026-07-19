@@ -4,13 +4,13 @@ Guía para trabajar en **Caliber** — el módulo de combate del ecosistema Corp
 
 ## Qué es
 
-Caliber es el módulo de **combate** del ecosistema Corpus: armadura zonal, escudos de energía, HP de extremidades y penetración balística — para NPCs (y, a futuro, jugador). Es un addon Gmod independiente con su propio git, que **hard-depende** de Corpus (la única dependencia dura del ecosistema) y de nadie más. Detecta a otros módulos en runtime vía `Corpus.GetModule`/`Corpus.HasModule`, nunca los asume.
+Caliber es el módulo de **combate** del ecosistema Corpus: armadura zonal, escudos de energía, HP de extremidades y penetración balística — para NPCs (y, a futuro, jugador). Es un addon Gmod independiente con su propio git, que **hard-depende** de Corpus (la única dependencia dura del ecosistema — cita COR-11) y de nadie más. Detecta a otros módulos en runtime vía `Corpus.GetModule`/`Corpus.HasModule`, nunca los asume.
 
 Este repo nació de la **migración de ADS 2.0** (`AdvancedDamageSystem 2.0`, tag `v1.0`, congelado en `dev/legacy/`) a un módulo de Corpus: rename mecánico de namespace + wiring sobre las 6 primitivas de Corpus, **sin reescritura de dominio**. El diseño de la migración → [`docs/Caliber_Architecture.md`](docs/Caliber_Architecture.md) (Block 2). El framework y el grafo de dependencias → `../corpus/docs/CORPUS_Architecture.md`.
 
-**Regla cardinal:** los principios de dominio ya fijados en ADS se preservan intactos — EFT gana la jerarquía del extractor, resolver puro, armadura como pre-filtro delante de limbs, escudo como pre-filtro delante de la armadura. Un fix a partir de ahora se hace sobre Caliber, nunca se retro-porta al legacy congelado.
+**Regla cardinal (CAL-18):** los principios de dominio ya fijados en ADS se preservan intactos — EFT gana la jerarquía del extractor, resolver puro, armadura como pre-filtro delante de limbs, escudo como pre-filtro delante de la armadura. Un fix a partir de ahora se hace sobre Caliber, nunca se retro-porta al legacy congelado.
 
-**Regla cardinal:** nada de lógica de dominio sube a Corpus. El pool de HP de extremidades, la math de armadura, los hitgroups, las curvas — todo vive **acá** (su dueño), y otros módulos lo consumen vía el registro de Corpus. Ver §3-4 de `CORPUS_Architecture.md`.
+**Regla cardinal (cita COR-10 y COR-1; su sede es el framework):** nada de lógica de dominio sube a Corpus. El pool de HP de extremidades, la math de armadura, los hitgroups, las curvas — todo vive **acá** (su dueño), y otros módulos lo consumen vía el registro de Corpus. Ver §3-4 de `CORPUS_Architecture.md`.
 
 ## Docs del proyecto — jerarquía de lectura
 
@@ -54,16 +54,16 @@ Un **manifest de carga explícito** (`corpus_caliber_init.lua`, único archivo e
 
 ## Contratos que no debes romper
 
-1. **Namespace: tabla única registrada.** Cada archivo abre con `local CALIBER = Corpus.GetModule("caliber")` (el init la registró antes vía `Corpus.RegisterModule`). **Ningún archivo declara un global `ADS`, `Caliber` ni `CALIBER` suelto** — ni tablas auxiliares globales (el browser y los FX de escudo usan file-locals, no globals). Depende del invariante by-ref del registro de Corpus (§3, §11 de la arquitectura).
-2. **Detección, nunca asunción.** Ningún archivo asume orden de mount; el hard-dep (Corpus) se detecta en el init (falla ruidoso si falta). Los cruces entre subsistemas van en hooks/timers con guarda de existencia (`if CALIBER.X then`).
-3. **Persistencia namespaced.** `Corpus.Data.Save/Load("caliber", key, tbl)` → `data/corpus/caliber/<key>.json`. Dos keys: `config` (whitelist/blacklist/armor/curated_weapons/ammo_fallback) y `scav_weights`. **Clean-slate**: sin importador del JSON viejo de ADS.
-4. **Net namespaced.** Todos los mensajes se registran con `Corpus.Net.Register("caliber", msg)` → `"corpus_caliber_<msg>"` (en `core`). `net.Start`/`net.Receive` usan ese nombre completo.
-5. **UI vía la primitiva.** Una sola entrada en el menú Q: `Corpus.UI.RegisterTab("caliber", "Caliber", fn)` (Utilities → Corpus → Caliber). El browser por-NPC se abre por botón/concommand, no como menú propio.
-6. **Log vía la primitiva.** Toda salida de consola va por `Corpus.Log("caliber", ...)` → prefijo `[Corpus:caliber]`.
-7. **Contrato público mínimo.** Solo `CALIBER.HealLimbs` (y a futuro `CALIBER.Limbs.*` + eventos de daño/limb) es superficie pública. El resto cuelga de la tabla pero es off-contract **por convención**, documentado en el bloque CONTRACT de `corpus_caliber_init.lua` (§8).
-8. **Prefijo de archivo por módulo:** `corpus_caliber_*.lua` — evita colisión cuando los siete addons están montados a la vez.
+1. **Namespace: tabla única registrada (cita COR-2).** Cada archivo abre con `local CALIBER = Corpus.GetModule("caliber")` (el init la registró antes vía `Corpus.RegisterModule`). **Ningún archivo declara un global `ADS`, `Caliber` ni `CALIBER` suelto** — ni tablas auxiliares globales (el browser y los FX de escudo usan file-locals, no globals). Depende del invariante by-ref del registro de Corpus (§3, §11 de la arquitectura).
+2. **Detección, nunca asunción (cita COR-5).** Ningún archivo asume orden de mount; el hard-dep (Corpus) se detecta en el init (falla ruidoso si falta). Los cruces entre subsistemas van en hooks/timers con guarda de existencia (`if CALIBER.X then`).
+3. **Persistencia namespaced (cita COR-3).** `Corpus.Data.Save/Load("caliber", key, tbl)` → `data/corpus/caliber/<key>.json`. Dos keys: `config` (whitelist/blacklist/armor/curated_weapons/ammo_fallback) y `scav_weights`. **Clean-slate**: sin importador del JSON viejo de ADS.
+4. **Net namespaced (cita COR-4).** Todos los mensajes se registran con `Corpus.Net.Register("caliber", msg)` → `"corpus_caliber_<msg>"` (en `core`). `net.Start`/`net.Receive` usan ese nombre completo.
+5. **UI vía la primitiva (cita COR-15; su sede es el CLAUDE.md del framework).** Una sola entrada en el menú Q: `Corpus.UI.RegisterTab("caliber", "Caliber", fn)` (Utilities → Corpus → Caliber). El browser por-NPC se abre por botón/concommand, no como menú propio.
+6. **Log vía la primitiva (cita COR-16; su sede es el CLAUDE.md del framework).** Toda salida de consola va por `Corpus.Log("caliber", ...)` → prefijo `[Corpus:caliber]`.
+7. **Contrato público mínimo (cita CAL-12; su sede es el bloque CONTRATO de `corpus_caliber_init.lua`).** Solo `CALIBER.HealLimbs` (y a futuro `CALIBER.Limbs.*` + eventos de daño/limb) es superficie pública. El resto cuelga de la tabla pero es off-contract **por convención**, documentado en el bloque CONTRACT de `corpus_caliber_init.lua` (§8).
+8. **Prefijo de archivo por módulo (cita COR-6):** `corpus_caliber_*.lua` — evita colisión cuando los siete addons están montados a la vez.
 
-## Deuda heredada — viaja sin tocar (§10 de la arquitectura)
+## Deuda heredada — viaja sin tocar (cita CAL-21; sede §10 de la arquitectura)
 
 No se aborda en este bloque; migra con el **mismo comportamiento (bugueado)** que tenía en ADS:
 - Decal `Caliber_Ricochet` **inerte** (Block FX) — requiere trabajo del pipeline de decals del engine HL2 (C++), fuera de alcance de un rename Lua.
@@ -73,7 +73,7 @@ No se aborda en este bloque; migra con el **mismo comportamiento (bugueado)** qu
 
 ## Verificación
 
-No hay test runner automatizado (es un addon GMod) — el patrón es el de ADS/Kontrol: cargar el mapa, confirmar en consola/juego, no asumir. Ver `../corpus/docs/corpus_flujo_trabajo.txt` §1 (Paso 4). El criterio de aceptación de la migración es **paridad de comportamiento** contra ADS 2.0 `v1.0` (VJ Base + ARC9 Darsu): armor zonal, limbs, scavenger, escudos, sound/Block FX, tab Weapons, toolgun M1/M2/Reload. Cualquier diferencia es bug de la migración, no de diseño. Comandos de consola de debug (`caliber_shield_give/clear/status`, `caliber_scavenger_*`, `caliber_debug_pick`) y el toolgun de debug quedan como en ADS.
+No hay test runner automatizado (es un addon GMod) — el patrón es el de ADS/Kontrol: cargar el mapa, confirmar en consola/juego, no asumir. Ver `../corpus/docs/corpus_flujo_trabajo.txt` §1 (Paso 4). **CAL-10 —** El criterio de aceptación de la migración es **paridad de comportamiento** contra ADS 2.0 `v1.0` (VJ Base + ARC9 Darsu): armor zonal, limbs, scavenger, escudos, sound/Block FX, tab Weapons, toolgun M1/M2/Reload. Cualquier diferencia es bug de la migración, no de diseño. Comandos de consola de debug (`caliber_shield_give/clear/status`, `caliber_scavenger_*`, `caliber_debug_pick`) y el toolgun de debug quedan como en ADS.
 
 Al cerrar un cambio con superficie de runtime: refresca [`docs/caliber_estado.md`](docs/caliber_estado.md) en sitio y actualiza [`docs/CHANGELOG.md`](docs/CHANGELOG.md) (`[PENDIENTE]` → `[APLICADO YYYY-MM-DD]`, sin borrar ni renumerar).
 

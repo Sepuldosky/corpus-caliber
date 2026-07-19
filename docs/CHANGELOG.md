@@ -302,3 +302,72 @@ runtime.
   anota que lo de hoy fue la pasada de veracidad — solo docs y comentarios, sin superficie de
   runtime, para que la foto no se lea como si el Block 2 se hubiera movido. **[APLICADO
   2026-07-14]**
+
+---
+
+## PARCHES DE sesión Etiquetado de IDs normativos (deuda D-7) — 2026-07-19
+
+Tanda multi-repo del ecosistema, guiada por `dev/PROMPT_d7_etiquetado_ids.txt` (§8 del flujo).
+Solo prosa: **ninguna norma cambió**. Cada sede que el registro
+(`../corpus/docs/ids.yaml`) declara ahora lleva su ID visible, para que un lector que
+aterriza en el doc vea de qué norma se trata sin abrir el registro, y para que el gate de
+coherencia (§7.8) pueda contrastar el título del yaml contra la prosa de su sede.
+
+- PARCHE 1 — **22 de 22 IDs de la familia `CAL` etiquetados en su sede.**
+  Los 3 restantes NO se etiquetaron a propósito: sus sedes viven en archivos `.lua`,
+  en el CHANGELOG, en el estado o en el roadmap. Etiquetar ahí volvería **definitorio** un
+  comentario, que es lo que **FLU-26** prohíbe, o tocaría un doc que no se reescribe
+  (**FLU-14**). Son deuda **D-3** del registro y se cierran moviendo la sede a un doc —
+  decisión de diseño, no mecánica. **[APLICADO 2026-07-19]**
+
+- PARCHE 2 — **Contratos que eran copias, ahora CITAN por ID.** Los contratos 1-4 y 8 del
+  `CLAUDE.md` re-enunciaban normas del framework: pasan a citar `COR-2`, `COR-5`,
+  `COR-3`, `COR-4` y `COR-6`. Las reglas cardinales citan `COR-10`/`COR-1` y
+  `COR-11`. **[APLICADO 2026-07-19]**
+
+Hallazgo anotado, NO reparado: `Caliber_Architecture.md` §1 enuncia los principios de
+dominio **sin el escudo**, mientras `CAL-18` (CLAUDE.md) y `CAL-13` (doc de escudos §2)
+sí lo incluyen. Deliberadamente NO se le puso cita: hacerlo haría pasar por `CAL-18` una
+versión mutilada de la norma. Es la deuda **D-4**, pendiente de decisión del autor.
+
+Verificación: `corpus/.claude/check-ids/corpus_check_ids.ps1` en verde (una etiqueta mal
+tipeada habría salido como `HUERFANO_DOC`). Sin superficie de runtime: nada que cargar en
+un mapa, y **ningún check de planilla nace de esta tanda** (FLU-37).
+
+---
+
+## PARCHES DE sesión Anti-drift: cierre de votos — 2026-07-19
+
+Tanda multi-repo guiada por `dev/PROMPT_cierre_antidrift.txt`: el autor votó las deudas
+abiertas del registro y acá se aplica lo que toca a este repo.
+
+- PARCHE 1 — **D-4 cerrada.** `Caliber_Architecture.md` §1 enuncia la cadena completa del
+  pipeline (Hit → **escudo** → armadura → limbs) citando **`CAL-13`** — el escudo como
+  pre-filtro ya no falta en los principios de dominio. **[APLICADO 2026-07-19]**
+- PARCHE 2 — **Reconciliación del doc contra el código**, pedida por el autor (sospechaba
+  drift de la era ADS). El barrido dio el **§3 (boot diferido) CORRECTO** — el doc no quedó
+  viejo en el arranque. Los tres ajustes reales, aplicados: **(a)** la fila UI del §6
+  confundía el tab del menú Q con el browser — los 6 sub-tabs viven en el **browser
+  por-NPC** (concommand `caliber_browser`); la entrada del menú Q apila los 4 paneles de
+  convars + el botón que lo abre; **(b)** la fila Persistencia del §6 omitía la segunda key
+  `scav_weights`; **(c)** el §7 no declaraba los paths de assets `sound/ads/` y
+  `materials/ads/` — quedan anotados como **residual de 5.ª clase**, fuera del alcance del
+  rename (mover assets, no find-replace de Lua). Los deferrals de §9 están fielmente
+  descritos y no se tocaron (sin árbitro). **[APLICADO 2026-07-19]**
+- PARCHE 3 — **Los contratos 5 y 6 del `CLAUDE.md` pasan de definir a CITAR** los nuevos
+  **`COR-15`** (UI shell) y **`COR-16`** (log), acuñados en el framework — cierre de la
+  deuda D-11, que este repo destapó. **[APLICADO 2026-07-19]**
+
+Verificación: `corpus/.claude/check-ids/corpus_check_ids.ps1` en verde sobre 197 IDs. Sin
+superficie de runtime, y **ningún check de planilla nace de esta tanda** (FLU-37).
+
+---
+
+## PARCHES DE sesión Anti-drift: reparación del COMPLETO — 2026-07-19
+
+- PARCHE 1 — **Hallazgo 2.20 del acta `corpus/docs/auditorias/2026-07-19_coherencia_docs.md`:**
+  la fila «Ready barrier» del §6 deja de atribuir a Cortex el primer consumo de
+  `Corpus.OnReady` — lo pagó **Cargo en su Block 1**, y hoy lo usan también Coagulant y
+  Craving; Caliber lo tomará cuando deje de ser hoja en el grafo. **[APLICADO 2026-07-19]**
+
+Verificación: checker en verde + suite 12/12. Sin superficie de runtime.
