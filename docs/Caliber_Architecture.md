@@ -213,7 +213,7 @@ Las cuatro clases quedaron migradas; los greps se corrieron sobre `lua/` y dan *
 
 ## 8. Contrato público
 
-Superficie mínima expuesta de `CALIBER` (subconjunto documentado, el resto off-contract por convención): `HealLimbs` + lectura de pools de limbs. Eventos de daño/limb: **sin superficie de contrato** en este bloque — existe un `hook.Run("Caliber_LimbsUpdated", npc, reason)` heredado de ADS, **off-contract y sin consumidor** (ver §9.a).
+Superficie mínima expuesta de `CALIBER` (subconjunto documentado, el resto off-contract por convención): **solo `HealLimbs`** — lo único bajo contrato hoy (CAL-12). Los pools de limbs (`npc.Caliber_HP_*`) son el dominio sobre el que `HealLimbs` opera, NO una superficie de lectura contratada: son campos NPC-only internos que pueden renombrarse sin romper contrato. `CALIBER.Limbs.*` está **vacío en Block 2** (sin superficie de contrato). Eventos de daño/limb: **sin superficie de contrato** en este bloque — existe un `hook.Run("Caliber_LimbsUpdated", npc, reason)` heredado de ADS, **off-contract y sin consumidor** (ver §9.a).
 
 Se documenta con un bloque de comentario en el sitio de registro — **no** con prefijo `_` en campos internos. El prefijo obligaría a clasificar cada campo público/interno *dentro* de un pase que tiene que ser mecánico, y rompería la uniformidad del find-replace de la clase 1 (§7).
 

@@ -396,3 +396,28 @@ norma cambió de contenido**.
   frontera se decide EN DISEÑO); la deuda heredada cita **CAL-21**. **[APLICADO 2026-07-19]**
 
 Verificación: checker en verde sobre 207 IDs + suite 12/12. Sin superficie de runtime.
+
+---
+
+## PARCHES DE sesión Reparación del gate de coherencia (acta 2026-07-22) — 2026-07-22
+
+Tanda de reparación documental propuesta por el gate de coherencia en su corrida COMPLETO del
+2026-07-22 (`../../corpus/docs/auditorias/2026-07-22_coherencia_docs.md`; el gate propone, el
+autor dispone). Acá lo que toca a este repo. Solo prosa; **ninguna norma cambió de contenido**.
+
+- PARCHE 1 — **Hallazgo 2.2 [MEDIA] del acta:** `docs/Caliber_Architecture.md` §8 metía «lectura
+  de pools de limbs» DENTRO del subconjunto contratado, contradiciendo a **CAL-12**, al Lua y a
+  `CORPUS_Architecture.md:133` («lo único bajo contrato hoy es `HealLimbs`»). Se reemplaza por
+  «solo `HealLimbs`»; los pools `npc.Caliber_HP_*` se aclaran como dominio interno NPC-only —no
+  superficie de lectura contratada, renombrables sin romper contrato— y `CALIBER.Limbs.*` vacío
+  en Block 2. Alinea el texto con su propio code-block (que ya mostraba `Limbs.*` vacío).
+  **[APLICADO 2026-07-22]**
+- PARCHE 2 — **Contrato-vs-árbol PARCIAL 1 del acta:** el contrato #1 del `CLAUDE.md`
+  generalizaba «Cada archivo abre con `local CALIBER=…`», falsado por `shared.lua` y
+  `client_options.lua` (no consumen la tabla) y por el stool (la resuelve lazy dentro de
+  funciones). Se acota el alcance a «cada archivo **que consume la tabla del módulo** la
+  cachea…»; la protección no-globals (COR-2) queda intacta. **[APLICADO 2026-07-22]**
+
+Verificación: sin superficie de runtime (solo docs). El checker de IDs corre en cada commit que
+toca superficie normativa. Cambios trazables al acta (§7.1: el código manda). No commiteado ni
+pusheado (GIT-7).
