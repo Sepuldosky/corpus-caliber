@@ -105,6 +105,13 @@ pero cuando difieran gana este doc. La §3 es por-repo, nunca se hereda del fram
     Toolgun de debug (corpus_caliber_config.lua) y el manifest de carga
     (corpus_caliber_init.lua).
 
+  assets:
+    Identidad visual: los SVG de marca en assets/ (glifo pelado y lockup, en
+    variante light y dark) y el header del README que los embebe. Fuente de
+    verdad del diseño: corpus/docs/Corpus_Identidad.md.
+    No confundir con los assets de juego (materials/, particles/, sound/): esos
+    son contenido del módulo y van en el alcance que los usa.
+
   docs:
     Cambios a la arquitectura, estado, roadmap o convenciones cuando el commit es
     puramente documental y no encaja en ninguno de los alcances de arriba.
