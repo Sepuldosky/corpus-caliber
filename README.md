@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/caliber_lockup_dark.svg">
+    <img src="assets/caliber_lockup_light.svg" width="200" alt="Caliber">
+  </picture>
+</p>
+
 # Caliber
 
 Módulo de **combate** del ecosistema [Corpus](https://github.com/Sepuldosky/corpus) para
