@@ -120,6 +120,18 @@ local function ApplyShieldColorCP(ps, col)
     ps:SetControlPoint(SHIELD_COLOR_CP, Vector(col.r / 255, col.g / 255, col.b / 255))
 end
 
+-- CreateParticleSystem con los CINCO argumentos SIEMPRE explícitos. La wiki declara
+-- entAttach y offset opcionales (default 0 y vector cero), pero el addon "Lua Patcher"
+-- (workshop 2403043112) envuelve la global: con offset no-vector escupe un LogError
+-- CON STACK TRACE por llamada y recién después sustituye Vector(0,0,0) y sigue. O sea
+-- que la llamada de 3 argumentos funciona igual, pero ensucia la consola del cliente —
+-- y en el loop de recarga eso es un trace cada 0.7 s. Pasar el default a mano da el
+-- MISMO comportamiento y calla al wrapper. Único punto de llamada: si aparece un cuarto
+-- sistema colorable, entra por acá y no puede regresar el defecto.
+local function MakeParticleSystem(npc, name, attach)
+    return CreateParticleSystem(npc, name, attach, 0, vector_origin)
+end
+
 -- Partícula colorable en posición de mundo, tintada vía control point. El primer
 -- intento con CreateParticleSystem+CUSTOMORIGIN caía al fallback, por eso se usa
 -- CreateParticleSystemNoEntity (camino limpio para posición de mundo) primero.
@@ -132,7 +144,7 @@ local function TintedParticle(npc, name, pos, col)
         ps = CreateParticleSystemNoEntity(name, pos)
     end
     if (not ps or not ps:IsValid()) and IsValid(npc) then
-        ps = CreateParticleSystem(npc, name, PATTACH_CUSTOMORIGIN)
+        ps = MakeParticleSystem(npc, name, PATTACH_CUSTOMORIGIN)
     end
     if not ps or not ps:IsValid() then
         -- aviso una sola vez por sesión: dice qué camino falta para diagnosticar
@@ -314,7 +326,7 @@ hook.Add("Think", "Caliber_ShieldFX_Think", function()
                 local name = def.arcs
                 local ps
                 if def.customArcs and HasCustomColor(npc, def) then
-                    ps = CreateParticleSystem(npc, def.customArcs, PATTACH_ABSORIGIN_FOLLOW)
+                    ps = MakeParticleSystem(npc, def.customArcs, PATTACH_ABSORIGIN_FOLLOW)
                     if ps and ps:IsValid() then
                         ApplyShieldColorCP(ps, ShieldColor(npc, def))
                         name = def.customArcs
@@ -339,7 +351,7 @@ hook.Add("Think", "Caliber_ShieldFX_Think", function()
         if PART_EN:GetBool() and state == STATE_CHARGING and def.recharge and now >= fx.rechargeAt then
             local tinted = false
             if def.customRecharge and HasCustomColor(npc, def) then
-                local ps = CreateParticleSystem(npc, def.customRecharge, PATTACH_ABSORIGIN_FOLLOW)
+                local ps = MakeParticleSystem(npc, def.customRecharge, PATTACH_ABSORIGIN_FOLLOW)
                 if ps and ps:IsValid() then
                     ApplyShieldColorCP(ps, ShieldColor(npc, def))
                     tinted = true

@@ -5,7 +5,7 @@
 > secciones ni historial). El historial vive en `git` + [`CHANGELOG.md`](CHANGELOG.md).
 > Si crece de una pantalla, está mal redactado: recortar.
 
-**Última actualización:** 2026-07-14 (paridad ADS verificada en juego el 2026-07-09 — Block 2 CERRADO, commiteado y publicado en GitHub, `main`; los docs pasaron la **pasada de veracidad del 2026-07-14** — solo docs y comentarios, sin superficie de runtime)
+**Última actualización:** 2026-07-30 (paridad ADS verificada en juego el 2026-07-09 — Block 2 CERRADO, commiteado y publicado en GitHub, `main`; los docs pasaron la **pasada de veracidad del 2026-07-14**. El 2026-07-30 entra y se verifica en juego el primer fix de runtime post-Block 2 — **sin commitear**)
 
 ---
 
@@ -30,6 +30,9 @@
 
 ## Remanentes / deuda conocida
 
+- **Sin commitear:** el fix del ruido del Lua Patcher en las partículas colorables del
+  escudo (CHANGELOG, sesión 2026-07-30) está `[APLICADO]` y verificado en juego, pero
+  el árbol todavía no se commiteó (GIT-7).
 - **Deuda heredada de ADS, viaja SIN tocar** (§10 de la arquitectura): decal
   `Caliber_Ricochet` inerte, `DNumSlider` en tab Limbs/WL, doble mult de zona ARC9
   (Front 4, ~50% menos daño a miembros), cache de hitgroups por modelo.

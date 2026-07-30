@@ -421,3 +421,50 @@ autor dispone). Acá lo que toca a este repo. Solo prosa; **ninguna norma cambi�
 Verificación: sin superficie de runtime (solo docs). El checker de IDs corre en cada commit que
 toca superficie normativa. Cambios trazables al acta (§7.1: el código manda). No commiteado ni
 pusheado (GIT-7).
+
+---
+
+## PARCHES DE sesión Ruido del Lua Patcher en las partículas colorables — 2026-07-30
+
+Primer defecto de **runtime** reportado por el autor desde que cerró el Block 2. Al romperse el
+escudo de un `npc_vj_cswatsuph` la consola del cliente escupe
+`[Lua Patcher Client] Some code attempted to call CreateParticleSystem with offset "nil".` con
+stack trace, apuntando a `corpus_caliber_shields_cl.lua:317` (los arcos colorables).
+
+**Causa raíz** (leída del gma del tercero, no inferida): el addon **Lua Patcher**
+(workshop `2403043112`, `lua/autorun/+piengineers_lua_patcher_rewrite.lua:394-400`) envuelve la
+global `CreateParticleSystem` y valida `isvector(offset)`; si no lo es, **loguea y después
+sustituye `Vector(0,0,0)` y reenvía la llamada**. La wiki declara `entAttach` y `offset`
+opcionales con esos mismos defaults, así que las llamadas de 3 argumentos de Caliber son
+**legales y funcionalmente correctas** — el tinte por control point nunca se perdió. Lo único
+roto es la consola. Nada que ver con el pipeline de daño: el server ya cerró el `break`
+correctamente (`pool 7.7->0.0`, `SetState(STATE_DOWN)`) antes de que el cliente dibuje.
+
+Alcance real, mayor que el sitio reportado: **tres** llamadas de 3 argumentos, no una.
+`:317` (arcos, `STATE_DOWN`) queda latcheada por `fx.arcsOn` → un trace por rotura; **`:342`
+(recarga, `STATE_CHARGING`) re-attachea cada 0.7 s → un trace cada 0.7 s** mientras el escudo
+regenera, que es el ruido que el autor todavía no vio porque su log corta en el break; y `:135`
+(impacto/colapso) es latente — solo corre si `CreateParticleSystemNoEntity` falta o falla, y el
+log prueba que no falla (7 absorbs tintados sin un solo error). El wrapper deduplica por
+traceback y corta a las 10 repeticiones por sesión, así que es ruido acotado, no un flood.
+
+- PARCHE 1 — fix(shields): `corpus_caliber_shields_cl.lua` — las tres llamadas pasan por un
+  único helper `MakeParticleSystem(npc, name, attach)` que llama a `CreateParticleSystem` con
+  los **cinco** argumentos explícitos (`0, vector_origin` = los defaults documentados). Un solo
+  punto de llamada para que un cuarto sistema colorable no pueda regresar el defecto. Cambio
+  **behavior-preserving por construcción**: es exactamente el valor que el wrapper ya sustituía,
+  y el que el engine ya usaba sin el wrapper. **[APLICADO 2026-07-30]**
+
+Verificación (PASO 4, del autor): romper el escudo de un NPC con `shield_color` custom **y dejarlo
+regenerar hasta full** — el tramo de recarga es el que más ruido hacía y el que el log original no
+cubre. Criterio doble, y el segundo es el que importa: (a) cero líneas `[Lua Patcher Client]` sobre
+`CreateParticleSystem`, y (b) los arcos + la recarga **siguen saliendo del color custom** — si
+salieran en el amarillo Spartan / azul Elite horneado, el fallback se comió el tinte y el parche
+rompió algo, y una consola callada se ve idéntica en los dos casos. **PASÓ el 2026-07-30**: el
+autor confirma cero líneas del Lua Patcher y color + recarga sin cambios. No commiteado ni
+pusheado (GIT-7).
+
+Fuera de alcance, confirmado NO nuestro: `Decal has more than 16384 indices! (32298) Not adding to
+konnie/isa/detroit/swat_soldier.mdl.` es el presupuesto de índices de decals del engine sobre ese
+modelo, agotado por los impactos acumulados. No lo emite Caliber ni el camino de escudo (el
+`Caliber_Ricochet` del Block FX está inerte, deuda §10).
