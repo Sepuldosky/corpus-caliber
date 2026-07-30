@@ -461,8 +461,9 @@ cubre. Criterio doble, y el segundo es el que importa: (a) cero líneas `[Lua Pa
 `CreateParticleSystem`, y (b) los arcos + la recarga **siguen saliendo del color custom** — si
 salieran en el amarillo Spartan / azul Elite horneado, el fallback se comió el tinte y el parche
 rompió algo, y una consola callada se ve idéntica en los dos casos. **PASÓ el 2026-07-30**: el
-autor confirma cero líneas del Lua Patcher y color + recarga sin cambios. No commiteado ni
-pusheado (GIT-7).
+autor confirma cero líneas del Lua Patcher y color + recarga sin cambios. Commiteado y pusheado a
+`origin/main` el 2026-07-30 (`fix(shields): pasa los cinco argumentos de CreateParticleSystem en
+las partículas colorables`).
 
 Fuera de alcance, confirmado NO nuestro: `Decal has more than 16384 indices! (32298) Not adding to
 konnie/isa/detroit/swat_soldier.mdl.` es el presupuesto de índices de decals del engine sobre ese
