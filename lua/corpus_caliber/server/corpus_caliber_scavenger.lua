@@ -611,6 +611,13 @@ end)
 -- ============================================================
 
 hook.Add("OnNPCKilled", "Caliber_Scavenger_NPCKilled", function(npc, attacker, inflictor)
+    -- OnNPCKilled NO es exclusivo de los NPC del engine: lo dispara a mano
+    -- cualquier addon de nextbots (DrGBase, los traders de corpus-stalker), y
+    -- el metatable NextBot no tiene GetActiveWeapon. Sin este guard el error
+    -- sube por hook.Run —que no atrapa nada— y aborta el OnKilled del que lo
+    -- disparó: el sujeto se queda de pie, con 0 de vida y sin ragdoll.
+    if not IsValid(npc) or not npc.GetActiveWeapon then return end
+
     -- Record what weapon class the NPC had before it was killed
     local wep = npc:GetActiveWeapon()
     if not IsValid(wep) then return end
