@@ -494,7 +494,7 @@ listener nuestro de tres líneas decapitando la secuencia de muerte de un addon 
   la clase**: un `npc:IsNPC()` habría descartado también a los nextbots que sí lo exponen, y el
   criterio correcto es "¿puedo preguntarle por su arma?", que es literalmente lo único que este
   listener necesita. El comentario deja escrito por qué existe la línea, para que la próxima
-  limpieza no se la lleve por redundante. **[PENDIENTE]**
+  limpieza no se la lleve por redundante. **[APLICADO 2026-08-17]**
 
 El otro listener del repo sobre el mismo hook, `Caliber_Shields_NPCKilled`
 (`corpus_caliber_shields.lua`), **está sano**: solo lee el campo `npc.Caliber_Shield` e indexa un
@@ -509,3 +509,9 @@ número de línea del reporte original, 615, ya no aplica: el guard corrió la l
 el scavenging sobre **NPC normales sigue funcionando** — que un NPC del engine muera con arma y
 otro la levante. El (b) es el que importa: un `return` puesto una línea de más apaga el listener
 entero y la consola se ve igual de limpia en los dos casos.
+
+**PASÓ el 2026-08-17.** (a) El autor mató a Sidorovich sin una sola línea del scavenger en
+consola. (b) **Verificado en positivo, no por ausencia**: mató a un citizen y otro NPC llegó a
+levantarle el arma — el listener sigue corriendo el camino completo sobre los NPC del engine.
+Commiteado y pusheado a `origin/main` (`fix(scavenger): no asumir un NPC del engine en el
+listener de OnNPCKilled`).

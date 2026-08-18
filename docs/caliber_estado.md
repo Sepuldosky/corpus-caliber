@@ -5,7 +5,7 @@
 > secciones ni historial). El historial vive en `git` + [`CHANGELOG.md`](CHANGELOG.md).
 > Si crece de una pantalla, está mal redactado: recortar.
 
-**Última actualización:** 2026-08-17 (paridad ADS verificada en juego el 2026-07-09 — Block 2 CERRADO, commiteado y publicado en GitHub, `main`; los docs pasaron la **pasada de veracidad del 2026-07-14**. El 2026-07-30 entra, se verifica en juego y se publica el primer fix de runtime post-Block 2. El 2026-08-17 entra un segundo fix de runtime que **todavía no tiene pasada en juego** — ver abajo)
+**Última actualización:** 2026-08-17 (paridad ADS verificada en juego el 2026-07-09 — Block 2 CERRADO, commiteado y publicado en GitHub, `main`; los docs pasaron la **pasada de veracidad del 2026-07-14**. El 2026-07-30 entra, se verifica en juego y se publica el primer fix de runtime post-Block 2. El 2026-08-17 entra, se verifica en juego y se publica un segundo fix de runtime — el árbol está **al día con `origin/main`**)
 
 ---
 
@@ -43,11 +43,7 @@
 
 ## Próximo paso
 
-1. **Pasada en juego del guard del scavenger** (`[PENDIENTE]` del CHANGELOG, 2026-08-17): el
-   listener de `OnNPCKilled` asumía que el sujeto es un NPC del engine y explotaba sobre
-   nextbots, abortando el `OnKilled` del addon que disparó el hook. Criterio de verificación en
-   el CHANGELOG — y el que importa es el (b), que el scavenging sobre NPC normales siga vivo.
-2. **Block 3 de Caliber:** pipeline de armadura de jugador (alcance nuevo, NPC→agnóstico).
+1. **Block 3 de Caliber:** pipeline de armadura de jugador (alcance nuevo, NPC→agnóstico).
    Ver [`caliber_roadmap.txt`](caliber_roadmap.txt).
 
 ---
