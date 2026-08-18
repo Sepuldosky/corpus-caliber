@@ -469,3 +469,43 @@ Fuera de alcance, confirmado NO nuestro: `Decal has more than 16384 indices! (32
 konnie/isa/detroit/swat_soldier.mdl.` es el presupuesto de índices de decals del engine sobre ese
 modelo, agotado por los impactos acumulados. No lo emite Caliber ni el camino de escudo (el
 `Caliber_Ricochet` del Block FX está inerte, deuda §10).
+
+---
+
+## PARCHES DE sesión El scavenger asumía que `OnNPCKilled` trae un NPC — 2026-08-17
+
+Reportado por el autor como un bug de **corpus-stalker**: al matar a Sidorovich, el trader no
+moría — quedaba de pie, en su sitio, con 0 de vida. La causa vivía acá.
+
+`OnNPCKilled` **no es exclusivo de los NPC del engine**: lo dispara a mano cualquier addon de
+nextbots (DrGBase, y los traders de corpus-stalker en su `ENT:OnKilled`). El listener
+`Caliber_Scavenger_NPCKilled` abría con `npc:GetActiveWeapon()` sin guard, y **el metatable
+`NextBot` no tiene ese método** — es de `NPC` y de `Player`. Sobre un `ENT.Type = "nextbot"` da
+`attempt to call method 'GetActiveWeapon' (a nil value)`.
+
+Lo que lo vuelve grave no es el error, es a quién se lo lleva puesto: **`hook.Run` no atrapa
+nada**, así que la excepción sube por la pila del que disparó el hook y aborta *el resto de su
+`OnKilled`*. En el caso reportado eso era el `BecomeRagdoll` — lo único que remueve la entidad —
+y también el `FireBullets`/`DoProjectileAttack` del ARC9 del jugador que estaba disparando. Un
+listener nuestro de tres líneas decapitando la secuencia de muerte de un addon ajeno.
+
+- PARCHE 1 — fix(scavenger): `corpus_caliber_scavenger.lua` — el listener abre con
+  `if not IsValid(npc) or not npc.GetActiveWeapon then return end`. Se chequea **el método, no
+  la clase**: un `npc:IsNPC()` habría descartado también a los nextbots que sí lo exponen, y el
+  criterio correcto es "¿puedo preguntarle por su arma?", que es literalmente lo único que este
+  listener necesita. El comentario deja escrito por qué existe la línea, para que la próxima
+  limpieza no se la lleve por redundante. **[PENDIENTE]**
+
+El otro listener del repo sobre el mismo hook, `Caliber_Shields_NPCKilled`
+(`corpus_caliber_shields.lua`), **está sano**: solo lee el campo `npc.Caliber_Shield` e indexa un
+registry. No necesita parche. Se revisó porque el orden de `hook.Run` es `pairs` —indefinido—, así
+que dependiendo de la corrida podía quedar del lado cortado del error: su `StopChargeSound` es
+justamente lo que evita que un loop de carga quede pegado a un índice de entidad reciclado (ver
+sesión del Bloque B), y no correr era un bug latente distinto colgado del mismo defecto.
+
+Verificación (PASO 4, del autor): matar a un nextbot armado —Sidorovich sirve— con el scavenger
+encendido. Criterio doble: (a) cero líneas de error de `corpus_caliber_scavenger.lua` en consola (el
+número de línea del reporte original, 615, ya no aplica: el guard corrió la llamada), y (b)
+el scavenging sobre **NPC normales sigue funcionando** — que un NPC del engine muera con arma y
+otro la levante. El (b) es el que importa: un `return` puesto una línea de más apaga el listener
+entero y la consola se ve igual de limpia en los dos casos.
