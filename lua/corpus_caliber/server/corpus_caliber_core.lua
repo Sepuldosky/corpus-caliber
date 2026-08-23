@@ -173,8 +173,15 @@ local PROBE_DMG_TYPES = {
 }
 local PROBE_HP_BASE = 1000   -- alto a proposito: el golpe no puede matar
 
--- Centro del hueso del primer hitbox cuyo hitgroup sea el pedido.
+-- CENTRO EN MUNDO del primer hitbox cuyo hitgroup sea el pedido.
 -- Devuelve nil si el modelo no tiene ninguno — que es una respuesta, no un error.
+--
+-- ⚠ La primera version devolvia m:GetTranslation(), o sea el ORIGEN DEL HUESO, y eso
+-- es un error SISTEMATICO: el origen de un hueso esta en su ARTICULACION, que cae
+-- adentro del hitbox del PADRE. El del craneo esta en el cuello (hitbox de PECHO) y
+-- el del muslo en la cadera (hitbox de ESTOMAGO). Medido el 2026-08-22: pidiendo hg=1
+-- llegaba hg=2 y pidiendo hg=6 llegaba hg=3, las dos veces al torso.
+-- GetHitBoxBounds devuelve mins/maxs RELATIVOS AL HUESO: hay que llevarlos a mundo.
 local function ProbeHitboxPos(ent, wantHG)
     local set = ent:GetHitboxSet()
     if not set then return nil end
@@ -182,7 +189,12 @@ local function ProbeHitboxPos(ent, wantHG)
     for i = 0, n - 1 do
         if ent:GetHitBoxHitGroup(i, set) == wantHG then
             local m = ent:GetBoneMatrix(ent:GetHitBoxBone(i, set))
-            if m then return m:GetTranslation() end
+            local mins, maxs = ent:GetHitBoxBounds(i, set)
+            if m and mins and maxs then
+                local pos = LocalToWorld((mins + maxs) * 0.5, angle_zero,
+                                         m:GetTranslation(), m:GetAngles())
+                return pos
+            end
         end
     end
     return nil
@@ -259,11 +271,22 @@ concommand.Add("caliber_ply_probe", function(ply, cmd, args)
             Corpus.Log("caliber", "[Caliber PROBE] el modelo no tiene hitbox con hitgroup " .. hgReq)
             return
         end
-        local src = hbPos + ply:GetAimVector() * -48 + Vector(0, 0, 4)
+        -- Se dispara RADIALMENTE DESDE AFUERA: del centro del cuerpo hacia el centro
+        -- del hitbox y 48 u mas alla. Asi el hitbox buscado es lo PRIMERO que la bala
+        -- encuentra, sea la cabeza (el radio apunta arriba), una pierna (abajo) o un
+        -- brazo (al costado). Un origen fijo adelante del jugador atraviesa el torso
+        -- antes de llegar a cualquier otra cosa, que es como se perdieron las dos
+        -- corridas de hitgroup del 2026-08-22.
+        local out = hbPos - ply:WorldSpaceCenter()
+        -- El pecho vive JUSTO en el centro: ahi el radio es casi nulo y no orienta
+        -- nada. Se cae al frente del jugador, que para el torso es correcto.
+        if out:Length() < 4 then out = ply:GetAimVector() * -1 end
+        out:Normalize()
+        local src = hbPos + out * 48
         local b = {}
         b.Num      = 1
         b.Src      = src
-        b.Dir      = (hbPos - src):GetNormalized()
+        b.Dir      = -out
         b.Spread   = Vector(0, 0, 0)
         b.Tracer   = 0
         b.Force    = 0
@@ -292,6 +315,13 @@ concommand.Add("caliber_ply_probe", function(ply, cmd, args)
     local F = string.format
     local function L(s) Corpus.Log("caliber", "[Caliber PROBE] " .. s) end
 
+    -- ⚠ El aviso NO ALCANZA. La corrida del 2026-08-22 imprimio "!! llego hg=2 y se
+    -- pidio hg=1" y DEBAJO el bloque entero de resultados, con sus cocientes bien
+    -- formados: la fila se marco PASA leyendo los numeros, que eran de un impacto en
+    -- el torso. Un instrumento que avisa y ademas contesta no avisa: contesta.
+    -- Ahora la medicion se DESCARTA y no se imprime un solo cociente.
+    local descartada = (via == "shot") and A ~= nil and A.hg ~= hgReq
+
     L("=== pedido ===")
     L(F("dmg=%.1f  tipo=%s  hg=%d  armor=%d  via=%s", dmgReq, tName, hgReq, armReq, via))
     if via == "shot" then
@@ -301,9 +331,6 @@ concommand.Add("caliber_ply_probe", function(ply, cmd, args)
 
     if A then
         L(F("A ScalePlayerDamage  dmg=%.2f  armor=%d  hp=%d  hg=%d", A.dmg, A.arm, A.hp, A.hg))
-        if A.hg ~= hgReq then
-            L(F("!! llego hg=%d y se pidio hg=%d. la fila NO mide lo pedido.", A.hg, hgReq))
-        end
     elseif via == "shot" then
         L("A ScalePlayerDamage  NO_OBSERVADO")
     else
@@ -322,14 +349,20 @@ concommand.Add("caliber_ply_probe", function(ply, cmd, args)
     -- Los cocientes los hace el comando, no el que lee. Denominador cero => n_a.
     local hpLost, armLost = hp0 - hp1, ar0 - ar1
     L(F("perdido  hp=%.1f  armor=%.1f", hpLost, armLost))
-    if B and B.dmg > 0 then
+    if descartada then
+        L(F("!! llego hg=%d y se pidio hg=%d", A.hg, hgReq))
+        L("!! MEDICION DESCARTADA. la bala no entro por donde se pidio, asi que los")
+        L("!! cocientes serian de OTRA zona. No se imprimen. Repetir la corrida.")
+    elseif B and B.dmg > 0 then
         L(F("daño que entro a OnTakeDamage  %.2f", B.dmg))
         L(F("  hp_por_punto     %.4f", hpLost / B.dmg))
         L(F("  armor_por_punto  %.4f", armLost / B.dmg))
     else
         L("cocientes sobre B  n_a  sin daño observado en EntityTakeDamage")
     end
-    if A and B and A.dmg > 0 then
+    if descartada then
+        L("escalado entre A y B  DESCARTADO")
+    elseif A and B and A.dmg > 0 then
         L(F("escalado entre A y B  %.4f", B.dmg / A.dmg))
     else
         L("escalado entre A y B  n_a")
