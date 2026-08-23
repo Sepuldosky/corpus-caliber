@@ -8,13 +8,15 @@ local function BuildArmorPanel(p)
 
     p:Help("System Toggles")
     p:CheckBox("Enable NPC armor system","caliber_enabled_npc")
-    p:CheckBox("Enable Player armor system","caliber_enabled_ply")
+    -- El checkbox "Enable Player armor system" (caliber_enabled_ply) SE RETIRO el
+    -- 2026-08-22: prometia un sistema que no existe. La convar SIGUE VIVA y es la
+    -- perilla real del pipeline de armadura de jugador (la leen IsArmored y
+    -- GetArmorReason); el control vuelve cuando haya algo que encender.
     p:CheckBox("Engine hitgroup compensation (limb/head HP)","caliber_engine_hitgroup_compensation")
 
     p:Help("Global Armor Defaults (fallback when no override)")
     p:NumSlider("NPC Min Armor","caliber_min_arm",0,100,0)
     p:NumSlider("NPC Max Armor","caliber_max_arm",0,100,0)
-    p:NumSlider("Player Spawn Armor","caliber_ply_arm",0,100,0)
     p:NumSlider("Min Reduction %","caliber_red_min",0,100,0)
     p:NumSlider("Max Reduction %","caliber_red_max",0,100,0)
 
@@ -47,11 +49,12 @@ local function BuildArmorPanel(p)
     p:Button("Reset Armor Settings to Default").DoClick = function()
         Derma_Query("Reset Armor Settings to defaults?","Caliber","Yes",function()
             RunConsoleCommand("caliber_enabled_npc","1")
+            -- Sigue reseteandose aunque ya no tenga control visible: la convar existe,
+            -- 1 es su default, y este boton se llama "Reset Armor Settings".
             RunConsoleCommand("caliber_enabled_ply","1")
             RunConsoleCommand("caliber_engine_hitgroup_compensation","1")
             RunConsoleCommand("caliber_min_arm","0")
             RunConsoleCommand("caliber_max_arm","100")
-            RunConsoleCommand("caliber_ply_arm","100")
             RunConsoleCommand("caliber_red_min","15")
             RunConsoleCommand("caliber_red_max","80")
             RunConsoleCommand("caliber_helmet_mult","0.5")
