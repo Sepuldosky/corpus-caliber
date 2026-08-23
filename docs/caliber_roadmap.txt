@@ -74,14 +74,46 @@ Ya movió el [4] y matizó el [3].
 
       ORDEN DE EJECUCIÓN — el paso 1 es precondición dura de los otros tres:
 
-        1. MEDIR el reparto real de ply:Armor() en Gmod: con un daño conocido, cuánto
-           baja la vida y cuánto baja el pool. Todo el balance del escudo del jugador
-           cuelga de esa constante y hoy NO está medida — el reparto de HL2 (~20% a la
-           vida, ~40% del daño crudo al pool) es una cita del engine, no una medición
-           sobre este juego.
-           >> EL NÚMERO MEDIDO VA ACÁ, y todavía no está: reemplaza a la cita de arriba
-              cuando la planilla haya corrido. Hasta entonces esta línea sigue diciendo
-              lo mismo que decía, y eso es correcto.
+        1. [MEDIDO EN JUEGO — 2026-08-22] El reparto real de ply:Armor() sobre ESTE
+           juego. La cita de HL2 que se venía usando —~20% a la vida, ~40% del daño
+           crudo al pool— era CORRECTA EN SU PRIMERA MITAD Y FALSA EN LA SEGUNDA:
+
+             · con pool de sobra:  vida = 0,2 x daño   POOL = 0,8 x daño
+             · con pool escaso:    el pool absorbe PUNTO POR PUNTO lo que le queda, y
+                                   la vida se lleva  daño - armadura_disponible
+                                   (100 de daño contra 10 de armadura -> hp -90, pool a 0)
+             · sin pool:           la vida se lleva el daño entero
+
+           O sea: ARMOR_RATIO sigue en 0,2 pero ARMOR_BONUS acá es 1,0 y no 0,5 — UN
+           PUNTO DE ARMADURA ABSORBE EXACTAMENTE UN PUNTO DE DAÑO. Los tres renglones
+           caen sobre un solo modelo y el del medio cae en la OTRA rama del if, que es
+           lo que lo vuelve una medición y no una coincidencia.
+
+           Y el reparto NO ES INDIFERENTE AL TIPO DE DAÑO: bullet, club y blast dan los
+           tres 0,8 al pool, pero DMG_FALL NO LO TOCA — la caída se lleva la vida entera
+           con la armadura intacta. Es el gemelo exacto de lo que BYPASS_TYPES ya marca
+           para el melee del lado escudo, y el paso 2 tiene que replicarlo o la caída va
+           a pegar distinto según cuánto escudo tengas.
+
+           La VÍA de entrega no cambia nada: el mismo daño por FireBullets y por
+           TakeDamageInfo da los mismos dos cocientes. Eso es lo que permite comparar la
+           fila de tipos (que va por TakeDamageInfo) contra las de bala.
+
+           ⚠ LO QUE SIGUE SIN MEDIRSE: el escalado de hitgroup sobre el JUGADOR. La
+           corrida salió inválida por un defecto del instrumento —apuntaba al origen del
+           hueso, que está en la articulación y cae adentro del hitbox del padre, así que
+           pidiendo cabeza pegaba en pecho y pidiendo pierna pegaba en estómago— y el
+           probe imprimía el aviso Y ADEMÁS el resultado, así que el número le ganó al
+           aviso. Arreglado el 2026-08-22 (tiro radial desde afuera + la medición se
+           DESCARTA sin imprimir cocientes). Se repite con la planilla, fila c4.
+
+           ⚠ Y hay un tercero que escribe el mismo pool y está MONTADO: el addon de
+           Workshop "Warzone Armor System" (3422752213). La medición de arriba no lo
+           acusa —los tres renglones caen exactos sobre la fórmula pura del engine, en
+           las dos ramas— pero el autor decidió sacarlo, y sacar un escritor del pool
+           es un cambio al sistema medido: al desuscribirlo hay que RE-CORRER las filas
+           c5 y c6 y confirmar que los números no se movieron. Son dos comandos.
+
            PRECONDICIÓN [HECHA 2026-08-22, pendiente de pasada en juego]: los dos
            controles muertos del panel Options salieron de la UI — el checkbox "Enable
            Player armor system" y el slider "Player Spawn Armor". Medir el lado jugador
@@ -96,8 +128,15 @@ Ya movió el [4] y matizó el [3].
            reparto, si el paso 2 puede vivir en ScalePlayerDamage o hay que ir a
            EntityTakeDamage. Un FALLA en una fila de medición es el hallazgo, no un defecto.
 
-        2. Bajar el mapeo ply:Armor() = POOL DEL ESCUDO (no de la armadura) y anular el
-           goteo del engine para el evento de daño. La colisión no es "dos
+        2. [DESBLOQUEADO por el paso 1] Bajar el mapeo ply:Armor() = POOL DEL ESCUDO
+           (no de la armadura) y anular el goteo del engine para el evento de daño.
+           Con el número medido, el mapeo es MÁS limpio de lo que se esperaba: el pool
+           del engine ya absorbe 1:1, así que `ply:Armor()` y los puntos de escudo están
+           en la MISMA unidad y no hay factor de conversión que inventar. Lo que hay que
+           anular es sólo el goteo del 0,2 — y el tope de 100 del engine contra el pool
+           50 del tipo `hev` deja de ser una contradicción de escalas: son 50 puntos de
+           daño absorbidos contra 100, o sea una decisión de balance, no de unidades.
+           Ojo con DMG_FALL, que hoy no toca el pool. La colisión no es "dos
            mitigaciones": es que el pool del engine gotea SIEMPRE (~20% a la vida) y el
            escudo de Caliber es NO-OVERFLOW (ProcessShield hace di:SetDamage(0) incluso
            al romperse) — dos filosofías opuestas del mismo pool. Un número global no
@@ -116,71 +155,24 @@ Ya movió el [4] y matizó el [3].
            NPC. Espeja BuildArmorTab contra un perfil indexado por PLAYERMODEL, y queda
            como la vía SIN Cargo.
 
-      LO VOTADO EL 2026-08-22 — sin bajar a la arquitectura todavía:
-        - Vocabulario de zonas COMPARTIDO = los hitgroups del engine (Coagulant también
-          los consume en su diseño complejo aún sin aplicar). Todo lo demás son
-          etiquetas de presentación. El que hoy no cierra es Cargo: sus condition_zones
-          usan "torso", que COA-8/COA-7 mató, y colapsan izquierda y derecha.
-        - Proveedor del perfil: lo decide la PRESENCIA de Cargo, no el inventario del
-          jugador. Con Cargo montado, equiparse una armadura inicia la data y la vía
-          SUIT queda APAGADA aunque el jugador ande sin nada — si se colgara del
-          inventario, desnudarse regalaría la armadura del traje, y el flip-flop sería
-          silencioso porque las dos vías escriben las mismas NWvars. Sin Cargo, el SUIT
-          de HL2 habilita el sistema completo. Un solo proveedor, por construcción.
-        - Un hitgroup tiene UN SOLO DUEÑO: cada ítem declara qué hitgroups reclama (el
-          slot da el default — Head -> 1, Body -> 2..7) y el chequeo al equipar rechaza
-          dos ítems que reclamen el mismo. Un traje cerrado que reclama la cabeza es
-          LEGAL y bloquea el slot Head mientras esté puesto: la trampa se vuelve
-          mecánica. En la UI, grisar las zonas que el slot no permite — es el mismo
-          mecanismo que la deuda heredada de §10 ("sin auto-grisado de zonas
-          imposibles"): una pieza paga las dos.
-        - dur_max y condition NO colisionan: son tipos distintos. `condition` (0-100) es
-          ESTADO y es de Cargo — precio, split de stacks, reparación. `dur_max` es la
-          ESCALA en puntos contra la que resta el armorDamage de la munición, y es
-          dominio de Caliber (misma tabla que ya fija coefDestruc y blunt por material).
-          Puente: durActual = dur_max x condition/100, con `condition` como ÚNICA fuente
-          de verdad almacenada — un escritor por campo, sin doble estado que se
-          desincronice.
-        - El charger y las baterías de HL2 recargan el ESCUDO, no la armadura, cuando
-          Cargo está montado. Cargo ya tiene DOS dominios de reparación cerrados y sin
-          solapamiento (banco = mantenimiento profundo, placa = parche rápido de campo;
-          Workbench_Arquitectura.md §4, cita CRG-54). Un charger gratis e ilimitado
-          sobre la armadura sería un TERCER canal encima del parche de campo y
-          devaluaría los dos. Sin Cargo (vía SUIT) sí repara las dos cosas.
-        - El editor de armaduras vive en CARGO, no en Caliber: el que sabe de condición,
-          peso, sub-slots y persistencia por ítem es Cargo. Caliber lee un perfil y lo
-          aplica.
+      EL DISEÑO CERRÓ Y BAJÓ A LA ARQUITECTURA (2026-08-23). Los siete votos del autor
+      del 2026-08-22 y el contrato de datos Cargo<->Caliber viven ahora en
+      Caliber_Architecture.md §13, sección autocontenida — quién inicia (CAL-24), qué
+      cruza (CAL-25), el claim de hitgroups (CRG-77), la escritura de vuelta de
+      `condition` (CRG-78), el exoshield (CAL-26), la barra del panel y la vía SUIT.
+      El bloque "LO VOTADO EL 2026-08-22" que vivía acá SE BORRÓ al escribir esa sección,
+      que es lo que este mismo doc decía que iba a pasar: el detalle de diseño no se
+      duplica en el roadmap (§0), y este doc es INTENCIÓN, no autoridad.
 
-      LA MITAD DE CARGO YA ESTÁ, y este doc no se había enterado: el ítem-armadura
+      LA MITAD DE CARGO YA ESTABA CONSTRUIDA, y ningún doc lo registraba: el ítem-armadura
       pesa, se equipa y persiste condición por zona; el sub-slot `accessory` (filtro
       category:exoshield) está comentado en el código de Cargo como "the Caliber Block 3
       attachment point"; las placas llevan campo `material` apuntando a la tabla de
-      materiales de Caliber. Ver el cruce #7 de cargo_roadmap.txt — redactado desde el
-      lado de Cargo y esperando este tramo.
+      materiales de Caliber; y el censo del 2026-08-22 encontró además que la batería
+      `cargo_hl2_battery` YA ESCRIBE ply:Armor() y que el StatusPanel YA DIBUJA una barra
+      con ese número. Las consecuencias de las dos están en §13.5 y §13.6. Ver también el
+      cruce #7 de cargo_roadmap.txt, redactado desde el lado de Cargo.
 
-      Y DOS PIEZAS MÁS, encontradas el 2026-08-22 al censar quién toca ply:Armor() (la Q6
-      de la planilla). Ninguna estaba registrada en ningún doc, y las dos tienen
-      consecuencia sobre la parte B del tramo:
-        - cargo_hl2_battery (corpus_cargo_supplies.lua) hace SetArmor(min(Armor()+15,100))
-          en su onUse. O sea que Cargo YA ESCRIBE el pool que el paso 2 quiere volver
-          escudo. El voto de arriba dice que las baterías recargan el ESCUDO y no la
-          armadura: si el paso 2 mapea ply:Armor() al pool del escudo, este ítem queda
-          correcto POR CONSTRUCCIÓN y Cargo no cambia una línea. Lo que no cierra es la
-          escala — el ítem topa en 100 y el tipo de escudo `hev` del registry tiene pool 50.
-        - corpus_cargo_dev.lua registra en el StatusPanel una barra "HL2 Armor" que lee
-          ply:Armor(), con cargo_dev_bars en 1 por default. La decisión B6 —qué MAGNITUD
-          dibuja la barra de protección— no arranca de cero: arranca decidiendo si duplica.
-
-      Y UN DATO DEL ENGINE que cambia la forma del paso 2, leído del árbol y pendiente de
-      medir: en el JUGADOR, el 2.0x de cabeza y el 0.25x de miembros NO son del engine —
-      los aplica GM:ScalePlayerDamage del gamemode base, en Lua
-      (gamemodes/base/gamemode/player.lua). Es un caso distinto del lado NPC, donde
-      caliber_engine_hitgroup_compensation cancela un escalado nativo que corre DESPUÉS
-      del hook. Si la medición lo confirma, esa compensación no se le aplica al jugador.
-      Ojo con el modo de falla que lo acompaña: hoy hay CUATRO listeners de
-      ScalePlayerDamage montados (uno de Coagulant, tres de artagdoll) y los cuatro cierran
-      SIN return con valor, así que la cadena llega al gamemode. El día que uno devuelva
-      algo, hook.Call aborta y el escalado desaparece entero y en silencio.
 
 
 2. SIGUIENTE — orden sugerido

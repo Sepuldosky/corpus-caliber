@@ -545,7 +545,7 @@ que este tramo existe para evitar.
   · `caliber_ply_arm` **se retira** (`corpus_caliber_core.lua`, alcance `core`): se creaba
     ahí y **no la leía nadie** en los 11 archivos del módulo — el local `P_STR` no aparecía
     en ninguna otra línea del repo. Se va también su línea del botón Reset.
-  **[PENDIENTE]**
+  **[APLICADO 2026-08-22]**
 
 - PARCHE 2 — feat(core): `corpus_caliber_core.lua` — concommand **`caliber_ply_probe`**,
   admin-only, siguiendo el patrón ya escrito de `caliber_debug_pick` /
@@ -578,7 +578,7 @@ que este tramo existe para evitar.
   · Acompaña **`caliber_ply_probe_reset`**: el probe deja la vida en 1000 y la armadura
     donde la puso, y eso **no se va solo**. Va como última línea de cada bloque de comandos
     de la planilla, no en la prosa de al lado.
-  **[PENDIENTE]**
+  **[APLICADO 2026-08-22]**
 
 - PARCHE 3 — chore(docs): planilla `dev/checks/caliber-b3-tramo0.html`, la **primera de
   Caliber** (la letra de sección arranca limpia y no se recicla nunca). 12 filas, copiada de
@@ -587,7 +587,7 @@ que este tramo existe para evitar.
   sobre el jugador (Q5), el reparto con armadura de sobra (Q1+Q2), el borde del pool (Q2),
   el control negativo sin armadura, el tipo de daño (Q3), la vía de entrega, y el censo de
   terceros (Q6). *(`dev/` está fuera de git — esta entrada la registra, no la commitea.)*
-  **[PENDIENTE]**
+  **[APLICADO 2026-08-22]**
 
 **Dos hallazgos vivos que la sesión no fue a buscar**, los dos del censo de Q6 y los dos
 con consecuencia sobre la parte B del tramo (el contrato Cargo↔Caliber):
@@ -617,3 +617,131 @@ El reporte se pide **por tandas** — se trunca a 50.000 caracteres y el corte e
 y las filas se cuentan contra la propia línea de conteo del reporte. **Un FALLA en las filas
 de medición no es un defecto: es el hallazgo**, y el número medido baja al roadmap `[1]`
 donde hoy dice *"es una cita del engine, no una medición sobre este juego"*.
+
+---
+
+## PARCHES DE sesión Block 3, tramo 0 — el número, y el instrumento que no medía — 2026-08-23
+
+La planilla `dev/checks/caliber-b3-tramo0.html` corrió el 2026-08-22: **12 pasa, 0 falla,
+1 sin correr de 13**. Los tres parches de la sesión anterior quedan `[APLICADO]`. Esta
+sesión hace tres cosas: baja el número medido a los docs, **arregla un defecto del propio
+instrumento que la corrida destapó**, y cierra la parte B del tramo con los votos del
+autor.
+
+### El número, que es lo que el tramo existía para conseguir
+
+La cita de HL2 —*~20 % a la vida, ~40 % del daño crudo al pool*— era **correcta en su
+primera mitad y falsa en la segunda**. Medido con daño 100:
+
+| | vida | pool |
+|---|---:|---:|
+| pool de sobra, 100 de armadura (**J5**) | −20 | **−80** |
+| pool escaso, 10 de armadura (**J6**) | −90 | −10, a cero |
+| sin pool (**J7**) | −100 | 0 |
+
+`ARMOR_RATIO` sigue en 0,2 pero **`ARMOR_BONUS` acá es 1,0 y no 0,5**: un punto de
+armadura absorbe exactamente un punto de daño. La fila del medio cae en la **otra rama del
+`if`** del engine y da el número que el álgebra predice — eso es lo que la vuelve una
+medición y no una coincidencia, y es la razón por la que **J6** y **J7** existen.
+
+**Y el reparto NO es indiferente al tipo de daño (J8):** bala, melee y explosión dan los
+tres 0,8 al pool; **`DMG_FALL` no lo toca** — la caída se lleva la vida entera con la
+armadura intacta. La **J9** confirma que la vía de entrega no cambia nada, que es lo que
+permite comparar la **J8** (por `TakeDamageInfo`) contra las filas de bala.
+
+> ⚠ **La J8 quedó marcada PASA y su criterio decía lo contrario.** El criterio pedía que
+> los **cuatro** `armor_por_punto` coincidieran, y `fall` da 0,0000 contra 0,8000 de los
+> otros tres. El hallazgo es correcto y es el que importa; la marca no. Queda anotado acá
+> porque es la forma de error que el catálogo de controles nombra: **la evidencia pegada
+> en la nota desmiente la marca de la fila, y el que lee el conteo no lo ve.**
+
+### El defecto del instrumento — PARCHE 1
+
+- PARCHE 1 — fix(core): `corpus_caliber_core.lua` — **`caliber_ply_probe` apuntaba al
+  origen del hueso, y el origen de un hueso está en la ARTICULACIÓN**, o sea adentro del
+  hitbox del **padre**. El del cráneo cae en el cuello (hitbox de PECHO) y el del muslo en
+  la cadera (hitbox de ESTÓMAGO). Medido en la **J4**: pidiendo `hg=1` llegó `hg=2` y
+  pidiendo `hg=6` llegó `hg=3`, las dos veces al torso. **Error sistemático, no mala
+  suerte.** Ahora `ProbeHitboxPos` devuelve el **centro del hitbox** llevado a mundo
+  (`GetHitBoxBounds` es relativo al hueso) y el disparo sale **radialmente desde afuera** —
+  del centro del cuerpo hacia el centro del hitbox y 48 u más allá—, para que el hitbox
+  buscado sea lo primero que la bala encuentra: arriba para la cabeza, abajo para una
+  pierna, al costado para un brazo.
+  **Y la segunda mitad, que es la que hizo daño:** el probe imprimía el aviso
+  `!! llego hg=2 y se pidio hg=1` **y debajo el bloque entero de resultados**, con sus
+  cocientes bien formados. La fila se marcó PASA leyendo los números, que eran de un
+  impacto en el torso. **Un instrumento que avisa y además contesta no avisa: contesta.**
+  Ahora la medición se **DESCARTA** — no se imprime un solo cociente, y el `escalado entre
+  A y B` sale `DESCARTADO`. **[PENDIENTE]** — lo cierra la re-corrida de la **J4**.
+
+- PARCHE 2 — chore(docs): las 13 filas de la planilla se renombran a **J1..J13**. Nacieron
+  etiquetadas `P-1`/`P-2`/`Q1..Q6`, y **P y Q son letras de sección de planilla ya
+  registradas** (Cargo, tandas B1 y B3): un `{ tipo: planilla, ref: "Q4" }` habría sido
+  ambiguo entre dos módulos. La letra **J** queda registrada en `corpus/docs/ids.yaml`, y
+  cierra un lazo viejo — la J estaba en la tabla de prefijos excluidos como ejemplo
+  *inventado* de un handoff (*"planilla Caliber, check J4"*) y se había sacado por no
+  existir en ningún repo. Ahora existe. Los rótulos `Q1..Q6` siguen vivos dentro del texto,
+  pero como las **seis preguntas del tramo**, no como ids de check. **[APLICADO 2026-08-23]**
+
+### La parte B cerrada — PARCHE 3
+
+- PARCHE 3 — docs(docs): **sección 13 nueva y autocontenida de
+  [`Caliber_Architecture.md`](Caliber_Architecture.md)** — *el contrato de datos
+  Cargo ↔ Caliber*, con los siete votos del autor del 2026-08-22 bajados y el número
+  medido delante. Con eso se borra del roadmap `[1]` el bloque *"LO VOTADO EL 2026-08-22"*,
+  que el propio `[1]` decía que se borraba recién acá, y entra el resumen en
+  `CORPUS_Architecture.md` §9.
+  **Cinco normas nuevas, registradas en el mismo parche (FLU-36):**
+  · **CAL-24** — el proveedor lo decide la **presencia** de Cargo, no el inventario; se
+    consume `Corpus_Cargo_EquipChanged` y su puerta de respawn, sin acuñar señal nueva.
+  · **CAL-25** — Cargo manda el **ítem**, Caliber traduce; `dur_max` y la tabla de
+    materiales no cruzan el contrato.
+  · **CAL-26** — un exoshield **nombra** un tipo de `CALIBER.ShieldTypes` y lo escala.
+  · **CRG-77** — un hitgroup tiene **un solo dueño**; sede en Cargo, porque es el único
+    lado que puede rechazar el equip.
+  · **CRG-78** — `condition` es la única fuente de verdad **almacenada**; `durActual` es
+    derivado y volátil, y la escritura de vuelta va al desequipar y en un tick perezoso,
+    **nunca por hit**.
+  Las cinco nacen `INTENCION` en el registro y eso es a propósito: **la norma existe para
+  que el paso 2 se escriba contra ella, no al revés** (COA-28 — no se implementa nada que
+  la arquitectura no especifique). **[APLICADO 2026-08-23]**
+
+### Lo que la medición dejó dicho sobre el paso 2
+
+**El mapeo sale más limpio de lo que se esperaba.** Como el pool del engine absorbe 1:1,
+`ply:Armor()` y los puntos de escudo **ya están en la misma unidad** y no hay factor de
+conversión que inventar. Lo que hay que anular es sólo el goteo del 0,2. Y la
+contradicción de escalas que se temía —el tipo `hev` con `max_hp 50` contra un tope de
+100— **no era tal**: son 50 puntos de daño absorbidos contra 100, o sea una perilla de
+balance.
+
+**La batería de Cargo queda correcta por construcción (J11).** `cargo_hl2_battery` sube 15
+y topa en 100 — verificado en juego: 49 → 64 → 79 → 94 → 100 → *"Suit energy is already
+full"*. Con el mapeo del paso 2 escribe el escudo sin cambiar una línea. Lo único que hay
+que mover es su tope, que hoy es un `100` literal y tiene que pasar a ser el `max_hp` del
+escudo activo.
+
+**La barra "HL2 Armor" del panel dev se mueve con el pool (J12)**, así que la barra de
+protección de Caliber la **reemplaza** y no se suma: dos barras del mismo número es el
+ruido que CRG-68 evita del otro lado.
+
+**Y hay un tercero montado que escribe el mismo pool (J10, J13):** el addon de Workshop
+*Warzone Armor System* (`3422752213`), confirmado **montado** por el censo de la J13 junto
+a otros tres escritores —*Crunchy's Ultimate Item Pickups* (20 escrituras), *Some Handy
+Entities* (13) y *D/GL4 Holographic HUD* (4)—. **La medición no lo acusa**: los tres
+renglones caen exactos sobre la fórmula pura del engine, en sus dos ramas. Pero el autor
+decidió desuscribirlo, y **sacar un escritor del pool es un cambio al sistema medido**: al
+hacerlo hay que **re-correr J5 y J6** y confirmar que los números no se movieron. Son dos
+comandos.
+
+> **Nota de denominador (J10):** el censo tuvo que correrse sobre **dos** universos, y el
+> primero no contiene al segundo. Sobre `addons/` son 210 archivos `.lua` y 7 hits; pero un
+> `.gma` suscrito **nunca es una carpeta**, y los **393** suscritos —67 GB— trajeron **11
+> addons más, 8 de ellos escritores**. Los `.gma` son GMAD sin comprimir, así que el grep
+> crudo los lee: control positivo, **322 de los 393** devuelven la cadena `lua/`.
+
+Verificación (PASO 4, del autor): re-correr la **J4** con el probe arreglado — es la única
+pregunta del tramo que sigue sin respuesta. Criterio: `escalado entre A y B` da **2,0000**
+con `hg=1`, **1,0000** con `hg=2` y **0,2500** con `hg=6`. Si vuelve a salir
+`MEDICION DESCARTADA`, la fila es **SIN CORRER**, no FALLA, y el defecto es del
+instrumento otra vez.
