@@ -4,7 +4,12 @@ local CALIBER = Corpus.GetModule("caliber")
 
 local S_MIN  = CreateConVar("caliber_min_arm",       "0",   FCVAR_REPLICATED + FCVAR_ARCHIVE)
 local S_MAX  = CreateConVar("caliber_max_arm",       "100", FCVAR_REPLICATED + FCVAR_ARCHIVE)
-local P_STR  = CreateConVar("caliber_ply_arm",       "100", FCVAR_REPLICATED + FCVAR_ARCHIVE)
+-- caliber_ply_arm: RETIRADA el 2026-08-22 (tramo 0 del Block 3). Se creaba acá y no la
+-- leia NADIE en los 11 archivos del modulo: era una perilla con UI y sin mecanismo.
+-- Se saco tambien su slider del panel Options y su linea del boton Reset.
+-- NO se re-crea con este nombre sin mirar antes cfg/server.vdf: el valor 100 quedo
+-- ARCHIVADO ahi y volveria solo el dia que alguien vuelva a declarar el nombre, con la
+-- semantica nueva y sin que nadie lo haya elegido. El paso 2 del tramo estrena nombre.
 local R_MIN  = CreateConVar("caliber_red_min",       "15",  FCVAR_REPLICATED + FCVAR_ARCHIVE)
 local R_MAX  = CreateConVar("caliber_red_max",       "80",  FCVAR_REPLICATED + FCVAR_ARCHIVE)
 local BLAST  = CreateConVar("caliber_blast_mult",    "0.5", FCVAR_REPLICATED + FCVAR_ARCHIVE)
@@ -125,6 +130,247 @@ concommand.Add("caliber_test_vj_inject", function(ply, cmd, args)
         if prev then return prev(self, dmginfo, hitgroup) end
     end
 end)
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- ── caliber_ply_probe — MIDE el reparto real de ply:Armor() ───────────────────
+-- Admin-only. Paso 1 del tramo 0 del Block 3 (caliber_roadmap.txt [1]).
+-- NO es parte del pipeline: no lee ni escribe nada de Caliber. Es un medidor.
+--
+--   caliber_ply_probe <dmg> <tipo> <hg> <armor> <via>
+--     dmg    daño pedido                       default 100
+--     tipo   bullet club blast fall generic     default bullet
+--     hg     0..7 hitgroup buscado              default 2
+--     armor  0..100 armadura de partida         default 100
+--     via    shot o direct                      default shot
+--
+-- Todos los argumentos son numeros o palabras con guion bajo: la consola de
+-- Source parte el argumento en llaves, parentesis, apostrofo y dos puntos, y
+-- ademas trunca la linea entera en 255 bytes.
+--
+-- LAS DOS VIAS NO MIDEN LO MISMO, y por eso estan las dos:
+--   via=shot    FireBullets real contra un hitbox del hitgroup pedido. Es el
+--               unico camino que dispara ScalePlayerDamage — el motor solo lo
+--               llama en trace attacks. Siempre es DMG_BULLET: el argumento
+--               <tipo> se IGNORA en esta via, y la salida lo dice.
+--   via=direct  TakeDamageInfo con el tipo pedido. NO pasa por hitgroup ni por
+--               ScalePlayerDamage. Es la unica via para fall y para blast.
+--
+-- TRES PUNTOS DE OBSERVACION, y la gracia esta en el orden:
+--   A  dentro de ScalePlayerDamage   — solo en via=shot
+--   B  dentro de EntityTakeDamage
+--   C  despues del golpe, y otra vez un frame despues
+-- Los tres imprimen ARMADURA ademas de daño: si en A y en B la armadura sigue
+-- entera, el reparto del motor corre DESPUES y el paso 2 puede vivir ahi.
+--
+-- Los hooks son de un solo uso y se sacan solos al final del comando. Si el
+-- golpe no llega, la salida imprime NO_OBSERVADO: el vacio tambien es lectura.
+local PROBE_DMG_TYPES = {
+    bullet  = DMG_BULLET,
+    club    = DMG_CLUB,
+    blast   = DMG_BLAST,
+    fall    = DMG_FALL,
+    generic = DMG_GENERIC,
+}
+local PROBE_HP_BASE = 1000   -- alto a proposito: el golpe no puede matar
+
+-- Centro del hueso del primer hitbox cuyo hitgroup sea el pedido.
+-- Devuelve nil si el modelo no tiene ninguno — que es una respuesta, no un error.
+local function ProbeHitboxPos(ent, wantHG)
+    local set = ent:GetHitboxSet()
+    if not set then return nil end
+    local n = ent:GetHitBoxCount(set) or 0
+    for i = 0, n - 1 do
+        if ent:GetHitBoxHitGroup(i, set) == wantHG then
+            local m = ent:GetBoneMatrix(ent:GetHitBoxBone(i, set))
+            if m then return m:GetTranslation() end
+        end
+    end
+    return nil
+end
+
+concommand.Add("caliber_ply_probe", function(ply, cmd, args)
+    if not IsValid(ply) or not ply:IsPlayer() then
+        Corpus.Log("caliber", "[Caliber PROBE] correlo desde un jugador, no desde la consola del server.")
+        return
+    end
+    if not ply:IsAdmin() then
+        ply:PrintMessage(HUD_PRINTCONSOLE, "[Caliber PROBE] requires admin.")
+        return
+    end
+    if not ply:Alive() then
+        Corpus.Log("caliber", "[Caliber PROBE] el jugador esta muerto. Respawnea y repeti.")
+        return
+    end
+
+    local dmgReq = tonumber(args[1]) or 100
+    local tName  = string.lower(args[2] or "bullet")
+    local hgReq  = math.Clamp(math.floor(tonumber(args[3]) or 2), 0, 7)
+    local armReq = math.Clamp(tonumber(args[4]) or 100, 0, 100)
+    local via    = string.lower(args[5] or "shot")
+
+    local dmgType = PROBE_DMG_TYPES[tName]
+    if not dmgType then
+        Corpus.Log("caliber", "[Caliber PROBE] tipo invalido: " .. tName)
+        Corpus.Log("caliber", "[Caliber PROBE] validos: bullet club blast fall generic")
+        return
+    end
+    if via ~= "shot" and via ~= "direct" then
+        Corpus.Log("caliber", "[Caliber PROBE] via invalida: " .. via)
+        Corpus.Log("caliber", "[Caliber PROBE] validas: shot direct")
+        return
+    end
+
+    -- Estado de partida. Se lee DESPUES de escribirlo: si el motor clampeo, el
+    -- numero que se imprime es el que de verdad quedo puesto.
+    ply:SetHealth(PROBE_HP_BASE)
+    ply:SetArmor(armReq)
+    local hp0, ar0 = ply:Health(), ply:Armor()
+
+    local A, B, took = nil, nil, nil
+
+    local function Disarm()
+        hook.Remove("ScalePlayerDamage",    "Caliber_Probe_A")
+        hook.Remove("EntityTakeDamage",     "Caliber_Probe_B")
+        hook.Remove("PostEntityTakeDamage", "Caliber_Probe_C")
+    end
+
+    hook.Add("ScalePlayerDamage", "Caliber_Probe_A", function(p, hg, di)
+        if p ~= ply or A then return end
+        A = { hg = hg, dmg = di:GetDamage(), arm = p:Armor(), hp = p:Health() }
+        -- SIN return: un valor aca corta hook.Call y se saltea GM:ScalePlayerDamage,
+        -- que es JUSTO el escalado de hitgroup que este probe viene a medir.
+    end)
+    hook.Add("EntityTakeDamage", "Caliber_Probe_B", function(ent, di)
+        if ent ~= ply or B then return end
+        B = { dmg = di:GetDamage(), arm = ent:Armor(), hp = ent:Health(),
+              dt = di:GetDamageType() }
+    end)
+    hook.Add("PostEntityTakeDamage", "Caliber_Probe_C", function(ent, di, t)
+        if ent ~= ply or took ~= nil then return end
+        took = t and di:GetDamage() or 0
+    end)
+
+    -- ── entrega ──────────────────────────────────────────────────────────────
+    local fired = false
+    if via == "shot" then
+        local hbPos = ProbeHitboxPos(ply, hgReq)
+        if not hbPos then
+            Disarm()
+            Corpus.Log("caliber", "[Caliber PROBE] el modelo no tiene hitbox con hitgroup " .. hgReq)
+            return
+        end
+        local src = hbPos + ply:GetAimVector() * -48 + Vector(0, 0, 4)
+        local b = {}
+        b.Num      = 1
+        b.Src      = src
+        b.Dir      = (hbPos - src):GetNormalized()
+        b.Spread   = Vector(0, 0, 0)
+        b.Tracer   = 0
+        b.Force    = 0
+        b.Damage   = dmgReq
+        b.Attacker = game.GetWorld()
+        b.HullSize = 0
+        game.GetWorld():FireBullets(b)
+        fired = true
+    else
+        local di = DamageInfo()
+        di:SetDamage(dmgReq)
+        di:SetDamageType(dmgType)
+        di:SetAttacker(game.GetWorld())
+        di:SetInflictor(game.GetWorld())
+        di:SetDamagePosition(ply:WorldSpaceCenter())
+        ply:TakeDamageInfo(di)
+        fired = true
+    end
+
+    local hp1, ar1 = ply:Health(), ply:Armor()
+    Disarm()
+
+    -- ── salida ───────────────────────────────────────────────────────────────
+    -- Lineas cortas y una sola cosa por linea. Numeros y cocientes; ninguna
+    -- linea interpreta el resultado — el criterio lo pone la planilla.
+    local F = string.format
+    local function L(s) Corpus.Log("caliber", "[Caliber PROBE] " .. s) end
+
+    L("=== pedido ===")
+    L(F("dmg=%.1f  tipo=%s  hg=%d  armor=%d  via=%s", dmgReq, tName, hgReq, armReq, via))
+    if via == "shot" then
+        L("nota  via=shot es siempre DMG_BULLET. el tipo pedido NO se aplica.")
+    end
+    L(F("partida  hp=%d  armor=%d", hp0, ar0))
+
+    if A then
+        L(F("A ScalePlayerDamage  dmg=%.2f  armor=%d  hp=%d  hg=%d", A.dmg, A.arm, A.hp, A.hg))
+        if A.hg ~= hgReq then
+            L(F("!! llego hg=%d y se pidio hg=%d. la fila NO mide lo pedido.", A.hg, hgReq))
+        end
+    elseif via == "shot" then
+        L("A ScalePlayerDamage  NO_OBSERVADO")
+    else
+        L("A ScalePlayerDamage  no aplica en via=direct")
+    end
+
+    if B then
+        L(F("B EntityTakeDamage   dmg=%.2f  armor=%d  hp=%d  dt=%d", B.dmg, B.arm, B.hp, B.dt))
+    else
+        L("B EntityTakeDamage   NO_OBSERVADO")
+    end
+
+    L(F("C despues            hp=%d  armor=%d", hp1, ar1))
+    L(F("took PostEntityTakeDamage  %s", took and F("%.2f", took) or "NO_OBSERVADO"))
+
+    -- Los cocientes los hace el comando, no el que lee. Denominador cero => n_a.
+    local hpLost, armLost = hp0 - hp1, ar0 - ar1
+    L(F("perdido  hp=%.1f  armor=%.1f", hpLost, armLost))
+    if B and B.dmg > 0 then
+        L(F("daño que entro a OnTakeDamage  %.2f", B.dmg))
+        L(F("  hp_por_punto     %.4f", hpLost / B.dmg))
+        L(F("  armor_por_punto  %.4f", armLost / B.dmg))
+    else
+        L("cocientes sobre B  n_a  sin daño observado en EntityTakeDamage")
+    end
+    if A and B and A.dmg > 0 then
+        L(F("escalado entre A y B  %.4f", B.dmg / A.dmg))
+    else
+        L("escalado entre A y B  n_a")
+    end
+    L("=== fin ===")
+
+    -- Segunda lectura un frame despues: si algo difiere, alguien toco el estado
+    -- DESPUES del golpe y la lectura de arriba no es el resultado del golpe.
+    timer.Simple(0, function()
+        if not IsValid(ply) then return end
+        local hp2, ar2 = ply:Health(), ply:Armor()
+        if hp2 ~= hp1 or ar2 ~= ar1 then
+            Corpus.Log("caliber", F("[Caliber PROBE] !! un frame despues hp=%d armor=%d  y era hp=%d armor=%d",
+                hp2, ar2, hp1, ar1))
+        else
+            Corpus.Log("caliber", "[Caliber PROBE] un frame despues  sin cambios")
+        end
+    end)
+
+    if not fired then L("no se entrego daño.") end
+end, nil, "Mide el reparto de ply:Armor(). Args  dmg tipo hg armor via")
+
+-- caliber_ply_probe_reset — desmontaje del probe. Admin-only.
+-- El probe deja la vida en 1000 y la armadura donde la puso: eso NO se va solo.
+-- Va como ULTIMA linea de cada bloque de comandos de la planilla, no en la prosa.
+concommand.Add("caliber_ply_probe_reset", function(ply)
+    if not IsValid(ply) or not ply:IsPlayer() then return end
+    if not ply:IsAdmin() then
+        ply:PrintMessage(HUD_PRINTCONSOLE, "[Caliber PROBE] requires admin.")
+        return
+    end
+    ply:SetHealth(math.min(100, ply:GetMaxHealth()))
+    ply:SetArmor(0)
+    -- Los tres hooks del probe se sacan solos al final del comando; esto es la
+    -- red de contencion por si un error los dejo puestos.
+    hook.Remove("ScalePlayerDamage",    "Caliber_Probe_A")
+    hook.Remove("EntityTakeDamage",     "Caliber_Probe_B")
+    hook.Remove("PostEntityTakeDamage", "Caliber_Probe_C")
+    Corpus.Log("caliber", string.format("[Caliber PROBE] reset  hp=%d  armor=%d",
+        ply:Health(), ply:Armor()))
+end, nil, "Deja vida 100 y armadura 0, y saca los hooks del probe")
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- caliber_dump_vj_scale — dumpea campos de damage scale en un NPC VJ apuntado.
