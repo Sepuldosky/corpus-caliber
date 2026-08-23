@@ -5,7 +5,7 @@
 > secciones ni historial). El historial vive en `git` + [`CHANGELOG.md`](CHANGELOG.md).
 > Si crece de una pantalla, está mal redactado: recortar.
 
-**Última actualización:** 2026-08-22 (paridad ADS verificada en juego el 2026-07-09 — Block 2 CERRADO, commiteado y publicado en GitHub, `main`; los docs pasaron la **pasada de veracidad del 2026-07-14**. El 2026-07-30 entra, se verifica en juego y se publica el primer fix de runtime post-Block 2. El 2026-08-17 entra, se verifica en juego y se publica un segundo fix de runtime — el árbol está **al día con `origin/main`**. El 2026-08-22 entra una sesión de **ORIENTACIÓN, sin código**: se releva el estado real del lado jugador contra el código y se vota el alcance del módulo — orden y votos en [`caliber_roadmap.txt`](caliber_roadmap.txt) `[1]`)
+**Última actualización:** 2026-08-22 (paridad ADS verificada en juego el 2026-07-09 — Block 2 CERRADO, commiteado y publicado en GitHub, `main`; los docs pasaron la **pasada de veracidad del 2026-07-14**. El 2026-07-30 entra, se verifica en juego y se publica el primer fix de runtime post-Block 2. El 2026-08-17 entra, se verifica en juego y se publica un segundo fix de runtime — el árbol está **al día con `origin/main`**. El 2026-08-22 entran DOS sesiones. La primera, de **ORIENTACIÓN sin código**: releva el estado real del lado jugador contra el código y vota el alcance del módulo — orden y votos en [`caliber_roadmap.txt`](caliber_roadmap.txt) `[1]`. La segunda abre el **tramo 0 del Block 3**: retira los dos controles muertos y deja escrito el instrumento de medición. **Sin verificar en juego todavía** — el CHANGELOG está en `[PENDIENTE]`)
 
 ---
 
@@ -38,23 +38,40 @@
   que editar el repo se refleja directo en el juego.
 - **Limbs API NPC-only** (§9.b): `HealLimbs` y los pools asumen `npc.Caliber_HP_*` /
   `IsNPC()`. Se vuelve agnóstica recién con el pipeline de armadura de jugador.
-- **Dos controles del panel Options prometen un sistema que NO EXISTE** (relevado el
-  2026-08-22): el checkbox *"Enable Player armor system"* y el slider *"Player Spawn
-  Armor"*. `caliber_ply_arm` se crea en `corpus_caliber_core.lua:7` y **no se lee en
-  ninguna parte del módulo**; `caliber_enabled_ply` sólo se lee en `IsArmored`/
-  `GetArmorReason`, cuya rama de jugador es alcanzable **únicamente desde `InspectNPC`**
-  (dump de debug). El único hook de daño del módulo es `ScaleNPCDamage`, que el engine
-  no dispara para jugadores. **Se apagan o se marcan ANTES de medir nada sobre el
-  jugador** — es la precondición del paso 1 del tramo (roadmap `[1]`).
+- **Los dos controles muertos del panel Options ya no prometen nada** (retirados el
+  2026-08-22, `[PENDIENTE]` de pasada en juego): el checkbox *"Enable Player armor system"*
+  y el slider *"Player Spawn Armor"* salieron de la UI. `caliber_ply_arm` se retiró entera
+  —no la leía nadie en los 11 archivos del módulo—; `caliber_enabled_ply` **sigue viva**,
+  porque la leen `IsArmored`/`GetArmorReason` y va a ser la perilla real del tramo: lo que
+  se sacó es la promesa visible, no el mecanismo. ⚠ Las dos estaban **archivadas** en
+  `cfg/server.vdf` con valor, así que bajarles el default nunca las habría movido, y el
+  `caliber_ply_arm 100` que quedó ahí **volvería solo** el día que alguien vuelva a declarar
+  ese nombre — el motivo está escrito en el sitio donde se creaba.
+- **El instrumento de medición está escrito y sin correr:** `caliber_ply_probe` (+ su
+  `caliber_ply_probe_reset`), admin-only, aplica daño conocido al jugador y observa en tres
+  puntos —`ScalePlayerDamage`, `EntityTakeDamage`, y después del golpe— imprimiendo la
+  armadura además del daño. La planilla es `dev/checks/caliber-b3-tramo0.html`, 12 filas, la
+  primera de Caliber. **El módulo sigue sin punto de entrada de daño para el jugador**: el
+  único hook es `ScaleNPCDamage`, que el engine no dispara para jugadores. Eso es el paso 2
+  y no se escribe antes del dato.
 - **Ruido de pasos recurrente en NPCs:** confirmado **externo a Corpus/Caliber** (se
   reproduce con el módulo inerte; locomoción paridad exacta con ADS). Fuera de scope.
 
 ## Próximo paso
 
-1. **Block 3 de Caliber:** pipeline de armadura de jugador (alcance nuevo, NPC→agnóstico).
-   El diseño **NO cerró**: el paso 1 es una **medición** —el reparto real de `ply:Armor()`
-   en Gmod— y no código. Orden de los cuatro pasos y lo votado el 2026-08-22, en
-   [`caliber_roadmap.txt`](caliber_roadmap.txt) `[1]`.
+1. **Correr `dev/checks/caliber-b3-tramo0.html` en juego.** Es el paso 1 del tramo `[1]`: una
+   **medición**, no código. Sale de ahí el reparto real de `ply:Armor()` —cuánto del daño va
+   a la vida y cuánto al pool— y la respuesta a si el paso 2 puede vivir en
+   `ScalePlayerDamage` o hay que irse a `EntityTakeDamage`. Un FALLA en una fila de medición
+   **es el hallazgo, no un defecto**. El número baja al roadmap `[1]`, donde hoy dice *"es una
+   cita del engine, no una medición sobre este juego"*.
+2. **Con el dato en mano, el paso 2:** bajar el mapeo `ply:Armor()` = pool del escudo y anular
+   el goteo del engine para el evento de daño.
+3. **La parte B del tramo, en paralelo y sin código:** el contrato de datos Cargo↔Caliber
+   (siete decisiones, B1–B7). Es una sesión de diseño que termina en **votos del autor** y baja
+   a `Caliber_Architecture.md` recién al cerrar. Dos piezas de Cargo aparecieron ya
+   construidas y sin que ningún doc lo registrara: la batería `cargo_hl2_battery`, que escribe
+   `ply:Armor()`, y la barra *"HL2 Armor"* del StatusPanel, que ya lo dibuja.
 
 ---
 

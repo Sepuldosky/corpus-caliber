@@ -79,9 +79,22 @@ Ya movió el [4] y matizó el [3].
            cuelga de esa constante y hoy NO está medida — el reparto de HL2 (~20% a la
            vida, ~40% del daño crudo al pool) es una cita del engine, no una medición
            sobre este juego.
-           PRECONDICIÓN: apagar o marcar los dos controles muertos del panel Options
-           (ver caliber_estado.md). Medir el lado jugador con un checkbox diciendo
-           "Enable Player armor system" en verde es medir con un instrumento mintiendo.
+           >> EL NÚMERO MEDIDO VA ACÁ, y todavía no está: reemplaza a la cita de arriba
+              cuando la planilla haya corrido. Hasta entonces esta línea sigue diciendo
+              lo mismo que decía, y eso es correcto.
+           PRECONDICIÓN [HECHA 2026-08-22, pendiente de pasada en juego]: los dos
+           controles muertos del panel Options salieron de la UI — el checkbox "Enable
+           Player armor system" y el slider "Player Spawn Armor". Medir el lado jugador
+           con ese checkbox en verde era medir con un instrumento mintiendo. caliber_ply_arm
+           se retiró (no la leía nadie); caliber_enabled_ply sigue viva porque es la perilla
+           real del tramo.
+           INSTRUMENTO [ESCRITO 2026-08-22, SIN CORRER]: concommand caliber_ply_probe (+
+           caliber_ply_probe_reset) en corpus_caliber_core.lua, y la planilla
+           dev/checks/caliber-b3-tramo0.html, 12 filas — la primera de Caliber. Observa en
+           TRES puntos (dentro de ScalePlayerDamage, dentro de EntityTakeDamage, y después
+           del golpe) e imprime la ARMADURA además del daño: de ahí sale, además del
+           reparto, si el paso 2 puede vivir en ScalePlayerDamage o hay que ir a
+           EntityTakeDamage. Un FALLA en una fila de medición es el hallazgo, no un defecto.
 
         2. Bajar el mapeo ply:Armor() = POOL DEL ESCUDO (no de la armadura) y anular el
            goteo del engine para el evento de daño. La colisión no es "dos
@@ -144,6 +157,30 @@ Ya movió el [4] y matizó el [3].
       attachment point"; las placas llevan campo `material` apuntando a la tabla de
       materiales de Caliber. Ver el cruce #7 de cargo_roadmap.txt — redactado desde el
       lado de Cargo y esperando este tramo.
+
+      Y DOS PIEZAS MÁS, encontradas el 2026-08-22 al censar quién toca ply:Armor() (la Q6
+      de la planilla). Ninguna estaba registrada en ningún doc, y las dos tienen
+      consecuencia sobre la parte B del tramo:
+        - cargo_hl2_battery (corpus_cargo_supplies.lua) hace SetArmor(min(Armor()+15,100))
+          en su onUse. O sea que Cargo YA ESCRIBE el pool que el paso 2 quiere volver
+          escudo. El voto de arriba dice que las baterías recargan el ESCUDO y no la
+          armadura: si el paso 2 mapea ply:Armor() al pool del escudo, este ítem queda
+          correcto POR CONSTRUCCIÓN y Cargo no cambia una línea. Lo que no cierra es la
+          escala — el ítem topa en 100 y el tipo de escudo `hev` del registry tiene pool 50.
+        - corpus_cargo_dev.lua registra en el StatusPanel una barra "HL2 Armor" que lee
+          ply:Armor(), con cargo_dev_bars en 1 por default. La decisión B6 —qué MAGNITUD
+          dibuja la barra de protección— no arranca de cero: arranca decidiendo si duplica.
+
+      Y UN DATO DEL ENGINE que cambia la forma del paso 2, leído del árbol y pendiente de
+      medir: en el JUGADOR, el 2.0x de cabeza y el 0.25x de miembros NO son del engine —
+      los aplica GM:ScalePlayerDamage del gamemode base, en Lua
+      (gamemodes/base/gamemode/player.lua). Es un caso distinto del lado NPC, donde
+      caliber_engine_hitgroup_compensation cancela un escalado nativo que corre DESPUÉS
+      del hook. Si la medición lo confirma, esa compensación no se le aplica al jugador.
+      Ojo con el modo de falla que lo acompaña: hoy hay CUATRO listeners de
+      ScalePlayerDamage montados (uno de Coagulant, tres de artagdoll) y los cuatro cierran
+      SIN return con valor, así que la cadena llega al gamemode. El día que uno devuelva
+      algo, hook.Call aborta y el escalado desaparece entero y en silencio.
 
 
 2. SIGUIENTE — orden sugerido

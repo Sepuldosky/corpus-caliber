@@ -515,3 +515,105 @@ consola. (b) **Verificado en positivo, no por ausencia**: mató a un citizen y o
 levantarle el arma — el listener sigue corriendo el camino completo sobre los NPC del engine.
 Commiteado y pusheado a `origin/main` (`fix(scavenger): no asumir un NPC del engine en el
 listener de OnNPCKilled`).
+
+---
+
+## PARCHES DE sesión Block 3, tramo 0 — la medición de `ply:Armor()` — 2026-08-22
+
+Paso 1 del tramo `[1]` del roadmap, y su precondición. Todo el balance del escudo de
+jugador cuelga de una constante que **no está medida**: con un daño conocido, cuánto baja
+la vida y cuánto baja el pool. Lo que hay hoy —*~20 % a la vida, ~40 % del daño crudo al
+pool*— es **una cita del engine de HL2, no una medición sobre este juego**. Esta sesión no
+la mide: **construye el instrumento y la planilla**, y saca de en medio los dos controles
+que mentían. La medición la corre el autor en juego.
+
+Nada de esto toca el pipeline de daño: el módulo sigue sin punto de entrada para el
+jugador (el único hook de daño es `ScaleNPCDamage`, y el engine no lo dispara para
+jugadores). Eso es el paso 2, y **no se escribe antes del dato** — es exactamente el error
+que este tramo existe para evitar.
+
+- PARCHE 1 — fix(browser): `corpus_caliber_client_options.lua` — se retiran del panel
+  Options los **dos controles que prometían un sistema inexistente**: el checkbox
+  *"Enable Player armor system"* y el slider *"Player Spawn Armor"*. Medir el lado jugador
+  con un checkbox en verde diciendo que el sistema está encendido es medir con el
+  instrumento mintiendo, y es la precondición que el roadmap `[1]` le pone al paso 1.
+  **Las convars NO se borran por igual, porque no son el mismo caso:**
+  · `caliber_enabled_ply` **sigue viva** — la leen `IsArmored` y `GetArmorReason`, y va a
+    ser la perilla real del tramo. Lo que se saca es la promesa visible, no el mecanismo.
+    Su línea en el botón *Reset Armor Settings* se queda, con el motivo escrito al lado:
+    la convar existe, 1 es su default, y el botón se llama así.
+  · `caliber_ply_arm` **se retira** (`corpus_caliber_core.lua`, alcance `core`): se creaba
+    ahí y **no la leía nadie** en los 11 archivos del módulo — el local `P_STR` no aparecía
+    en ninguna otra línea del repo. Se va también su línea del botón Reset.
+  **[PENDIENTE]**
+
+- PARCHE 2 — feat(core): `corpus_caliber_core.lua` — concommand **`caliber_ply_probe`**,
+  admin-only, siguiendo el patrón ya escrito de `caliber_debug_pick` /
+  `caliber_test_vj_inject`. Aplica un daño **conocido** al jugador y registra el antes y el
+  después. No lee ni escribe nada de Caliber: es un medidor, no una pieza del pipeline.
+  · **Dos vías, y no miden lo mismo.** `via=shot` es un `FireBullets` real contra un hitbox
+    del hitgroup pedido — el **único** camino que dispara `ScalePlayerDamage`, porque el
+    motor sólo lo llama en trace attacks; siempre es `DMG_BULLET` y la salida lo dice.
+    `via=direct` es `TakeDamageInfo` con el tipo pedido, sin hitgroup — la única vía posible
+    para `fall` y para `blast`, que no llegan por trace attack.
+  · **Tres puntos de observación, y la gracia está en el orden:** dentro de
+    `ScalePlayerDamage`, dentro de `EntityTakeDamage`, y después del golpe. Los tres
+    imprimen **la armadura además del daño**: si el pool sigue entero en los dos hooks, el
+    reparto del motor corre después y el paso 2 puede vivir ahí. Ésa es la pregunta que
+    decide si el paso 2 es viable en `ScalePlayerDamage` o hay que ir a `EntityTakeDamage`,
+    y sin ella el paso 2 se diseña a ciegas.
+  · **El listener propio cierra sin `return`**, con el motivo escrito encima: un valor ahí
+    corta `hook.Call` y se saltea `GM:ScalePlayerDamage`, que es justo el escalado de
+    hitgroup que el probe viene a medir.
+  · **Los cocientes los hace el comando**, no el que lee: `hp_por_punto` y
+    `armor_por_punto` salen impresos, con `n_a` cuando el denominador es cero. Ninguna línea
+    de la salida interpreta el resultado — el criterio lo pone la planilla.
+  · **Lo que no se ve también se imprime:** `NO_OBSERVADO` cuando un punto no disparó, y una
+    línea `!!` cuando llegó un hitgroup distinto del pedido. Un vacío mudo se leería como un
+    cero.
+  · **Argumentos sin nada del break set de la consola** (`{ } ( ) ' :`) y línea corta: son
+    números y palabras en minúscula. La consola de Source parte el argumento en esos
+    caracteres y trunca la línea en 255 bytes, y **compilar el archivo no puede ver ninguna
+    de las dos cosas**.
+  · Acompaña **`caliber_ply_probe_reset`**: el probe deja la vida en 1000 y la armadura
+    donde la puso, y eso **no se va solo**. Va como última línea de cada bloque de comandos
+    de la planilla, no en la prosa de al lado.
+  **[PENDIENTE]**
+
+- PARCHE 3 — chore(docs): planilla `dev/checks/caliber-b3-tramo0.html`, la **primera de
+  Caliber** (la letra de sección arranca limpia y no se recicla nunca). 12 filas, copiada de
+  `paramic-vidrio-r4.html` con las seis cosas de `dev/PLANTILLA_CHECKS.md` reemplazadas.
+  Cubre las seis preguntas del tramo: el orden de los hooks (Q4), el escalado de hitgroup
+  sobre el jugador (Q5), el reparto con armadura de sobra (Q1+Q2), el borde del pool (Q2),
+  el control negativo sin armadura, el tipo de daño (Q3), la vía de entrega, y el censo de
+  terceros (Q6). *(`dev/` está fuera de git — esta entrada la registra, no la commitea.)*
+  **[PENDIENTE]**
+
+**Dos hallazgos vivos que la sesión no fue a buscar**, los dos del censo de Q6 y los dos
+con consecuencia sobre la parte B del tramo (el contrato Cargo↔Caliber):
+
+- **Cargo ya escribe el pool.** `cargo_hl2_battery` (`corpus_cargo_supplies.lua`) hace
+  `SetArmor(min(Armor() + 15, 100))` en su `onUse`. El voto del 2026-08-22 dice que las
+  baterías tienen que recargar el **escudo**, no la armadura — así que si el paso 2 mapea
+  `ply:Armor()` al pool del escudo, **este ítem queda correcto por construcción y Cargo no
+  cambia una línea**. Lo que no cierra es la escala: el ítem topa en 100 y el tipo de escudo
+  `hev` del registry tiene pool 50.
+- **La barra de protección ya está dibujada.** `corpus_cargo_dev.lua` registra en el
+  StatusPanel una barra *"HL2 Armor"* que lee `ply:Armor()`, con `cargo_dev_bars` en 1 por
+  default. La decisión **B6** no arranca de cero: arranca decidiendo si duplica.
+
+**Sobre el escalado de hitgroup del jugador, leído del árbol y pendiente de medir:** en el
+jugador el 2.0x de cabeza y el 0.25x de miembros **no son del engine** — los aplica
+`GM:ScalePlayerDamage` del gamemode base, **en Lua** (`gamemodes/base/gamemode/player.lua`).
+Es un caso distinto del lado NPC, donde `caliber_engine_hitgroup_compensation` cancela un
+escalado nativo que corre *después* del hook. Consecuencia si la medición lo confirma: esa
+compensación **no se le aplica al jugador**. Y hay una vía de falla que la fila Q5
+discrimina: los cuatro listeners de `ScalePlayerDamage` montados hoy —uno de Coagulant y
+tres de artagdoll— cierran todos **sin `return` con valor**, así que la cadena llega al
+gamemode; si alguno cambiara, el escalado desaparecería entero y en silencio.
+
+Verificación (PASO 4, del autor): la planilla `dev/checks/caliber-b3-tramo0.html`, entera.
+El reporte se pide **por tandas** — se trunca a 50.000 caracteres y el corte es invisible —
+y las filas se cuentan contra la propia línea de conteo del reporte. **Un FALLA en las filas
+de medición no es un defecto: es el hallazgo**, y el número medido baja al roadmap `[1]`
+donde hoy dice *"es una cita del engine, no una medición sobre este juego"*.
