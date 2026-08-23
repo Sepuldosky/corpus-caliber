@@ -26,6 +26,12 @@ INTENCIÓN PURA, no autoridad. Los IDs que aparecen acá son CITAS a normas cuya
 está en otro lado — este roadmap no acuña ninguna. Un "limpio" del gate de coherencia
 sobre este archivo se reporta NO-AUDITABLE POR DISEÑO.
 
+NOTA DE ALCANCE (voto del autor, 2026-08-22): Caliber ve ARMADURA, ESCUDOS, efectos de
+LIMB de NPC, y la PENETRACIÓN de las armas contra las armaduras del propio módulo. NO
+ve munición como inventario — eso es Cargo. Es un criterio de ALCANCE, no de
+implementación: lo que no entra en esas cuatro cosas se re-homea o se declara depósito.
+Ya movió el [4] y matizó el [3].
+
 
 1. INMEDIATO
 --------------
@@ -46,6 +52,99 @@ sobre este archivo se reporta NO-AUDITABLE POR DISEÑO.
       nueva de Caliber_Architecture.md al cerrar su diseño. Dos módulos esperan este
       tramo: Coagulant (hit-location enriquecido, hoy degradado por COA-7) y Cortex.
 
+      ESTADO DEL TRAMO (sesión de orientación del 2026-08-22, sin código): el diseño
+      NO cerró — falta una medición, que es el paso 1 de abajo. Por eso la sección de
+      arquitectura NO se escribe todavía (FLU-38 y §8.4 del flujo: un bloque se
+      documenta cuando convergió, y una decisión abierta va al autor antes). Lo votado
+      queda anotado acá y NO está duplicado en ningún otro lado: la arquitectura no
+      tiene una sola línea de esto. Baja allá al cerrar el diseño, y recién ahí se
+      borra de este doc.
+
+      PUNTO DE PARTIDA REAL (medido sobre el código, no inferido). El motor de armadura
+      YA es agnóstico: ResolveArmor, InitArmorNWvars, GetZone, ReadArmorNWvars y
+      ApplyArmorDirect toman `ent` y ninguna chequea IsNPC(). La penetración entera
+      (6 buckets, armas curadas, ExtractBulletData) se resuelve del lado del ATACANTE y
+      ya es indiferente a la víctima. El tipo de escudo `hev` existe en el registry con
+      los sonidos suitcharge del engine. Lo que falta NO es un subsistema: son DOS cosas
+      — (a) el PUNTO DE ENTRADA, porque el único hook de daño del módulo es
+      ScaleNPCDamage y el engine no lo dispara para jugadores; y (b) la IDENTIDAD,
+      porque GetConfigKey resuelve key de spawnmenu > classname y el classname de todo
+      jugador es "player" (de ahí el índice por PLAYERMODEL del paso 4). Escudos y limbs
+      sí son NPC-only enteros.
+
+      ORDEN DE EJECUCIÓN — el paso 1 es precondición dura de los otros tres:
+
+        1. MEDIR el reparto real de ply:Armor() en Gmod: con un daño conocido, cuánto
+           baja la vida y cuánto baja el pool. Todo el balance del escudo del jugador
+           cuelga de esa constante y hoy NO está medida — el reparto de HL2 (~20% a la
+           vida, ~40% del daño crudo al pool) es una cita del engine, no una medición
+           sobre este juego.
+           PRECONDICIÓN: apagar o marcar los dos controles muertos del panel Options
+           (ver caliber_estado.md). Medir el lado jugador con un checkbox diciendo
+           "Enable Player armor system" en verde es medir con un instrumento mintiendo.
+
+        2. Bajar el mapeo ply:Armor() = POOL DEL ESCUDO (no de la armadura) y anular el
+           goteo del engine para el evento de daño. La colisión no es "dos
+           mitigaciones": es que el pool del engine gotea SIEMPRE (~20% a la vida) y el
+           escudo de Caliber es NO-OVERFLOW (ProcessShield hace di:SetDamage(0) incluso
+           al romperse) — dos filosofías opuestas del mismo pool. Un número global no
+           puede representar armadura por zona, pero SÍ es la forma de un pool de
+           escudo. Ojo con BYPASS_TYPES (melee): ahí el goteo tampoco debe correr, o el
+           melee pega distinto según cuánto escudo tengas.
+
+        3. La indirección hitgroup -> SLOT DE ZONA en el perfil de armadura: varios
+           hitgroups apuntan al mismo slot, y la durabilidad y el material viven en el
+           slot. Es el ÚNICO cambio estructural del tramo. Sale de que un chaleco tiene
+           UN panel de brazos y no dos, mientras la durabilidad de Caliber vive hoy por
+           hitgroup (Caliber_Armor_Dur_<hg>, 8 slots independientes). Sin esto, Cargo no
+           puede expresar sus condition_zones.
+
+        4. Recién ahí, la pestaña Armor (Player) del Configurator, separada de la de
+           NPC. Espeja BuildArmorTab contra un perfil indexado por PLAYERMODEL, y queda
+           como la vía SIN Cargo.
+
+      LO VOTADO EL 2026-08-22 — sin bajar a la arquitectura todavía:
+        - Vocabulario de zonas COMPARTIDO = los hitgroups del engine (Coagulant también
+          los consume en su diseño complejo aún sin aplicar). Todo lo demás son
+          etiquetas de presentación. El que hoy no cierra es Cargo: sus condition_zones
+          usan "torso", que COA-8/COA-7 mató, y colapsan izquierda y derecha.
+        - Proveedor del perfil: lo decide la PRESENCIA de Cargo, no el inventario del
+          jugador. Con Cargo montado, equiparse una armadura inicia la data y la vía
+          SUIT queda APAGADA aunque el jugador ande sin nada — si se colgara del
+          inventario, desnudarse regalaría la armadura del traje, y el flip-flop sería
+          silencioso porque las dos vías escriben las mismas NWvars. Sin Cargo, el SUIT
+          de HL2 habilita el sistema completo. Un solo proveedor, por construcción.
+        - Un hitgroup tiene UN SOLO DUEÑO: cada ítem declara qué hitgroups reclama (el
+          slot da el default — Head -> 1, Body -> 2..7) y el chequeo al equipar rechaza
+          dos ítems que reclamen el mismo. Un traje cerrado que reclama la cabeza es
+          LEGAL y bloquea el slot Head mientras esté puesto: la trampa se vuelve
+          mecánica. En la UI, grisar las zonas que el slot no permite — es el mismo
+          mecanismo que la deuda heredada de §10 ("sin auto-grisado de zonas
+          imposibles"): una pieza paga las dos.
+        - dur_max y condition NO colisionan: son tipos distintos. `condition` (0-100) es
+          ESTADO y es de Cargo — precio, split de stacks, reparación. `dur_max` es la
+          ESCALA en puntos contra la que resta el armorDamage de la munición, y es
+          dominio de Caliber (misma tabla que ya fija coefDestruc y blunt por material).
+          Puente: durActual = dur_max x condition/100, con `condition` como ÚNICA fuente
+          de verdad almacenada — un escritor por campo, sin doble estado que se
+          desincronice.
+        - El charger y las baterías de HL2 recargan el ESCUDO, no la armadura, cuando
+          Cargo está montado. Cargo ya tiene DOS dominios de reparación cerrados y sin
+          solapamiento (banco = mantenimiento profundo, placa = parche rápido de campo;
+          Workbench_Arquitectura.md §4, cita CRG-54). Un charger gratis e ilimitado
+          sobre la armadura sería un TERCER canal encima del parche de campo y
+          devaluaría los dos. Sin Cargo (vía SUIT) sí repara las dos cosas.
+        - El editor de armaduras vive en CARGO, no en Caliber: el que sabe de condición,
+          peso, sub-slots y persistencia por ítem es Cargo. Caliber lee un perfil y lo
+          aplica.
+
+      LA MITAD DE CARGO YA ESTÁ, y este doc no se había enterado: el ítem-armadura
+      pesa, se equipa y persiste condición por zona; el sub-slot `accessory` (filtro
+      category:exoshield) está comentado en el código de Cargo como "the Caliber Block 3
+      attachment point"; las placas llevan campo `material` apuntando a la tabla de
+      materiales de Caliber. Ver el cruce #7 de cargo_roadmap.txt — redactado desde el
+      lado de Cargo y esperando este tramo.
+
 
 2. SIGUIENTE — orden sugerido
 --------------------------------
@@ -57,21 +156,31 @@ sobre este archivo se reporta NO-AUDITABLE POR DISEÑO.
       sin consumidor. El pendiente NO es agregar el emit sino ENRIQUECER SU PAYLOAD
       —hoy es (npc, reason): sin zona, sin daño al pool, sin dmginfo— y recién ahí
       elevarlo a contrato (§8): tal como está es un aviso de refresh, no un evento de
-      daño. No se diseña a ciegas: aterriza cuando Cortex entre en su Block.
+      daño. No se diseña a ciegas — pero el consumidor que EXISTE hoy es Coagulant,
+      no Cortex: corpus-cortex tiene README, assets, CHANGELOG y
+      Cortex_ContratosEntrantes.md, y CERO archivos Lua. Atar este tramo a Cortex lo
+      bloquea contra nada. Aterriza con el consumidor que esté VIVO — hoy, el wiring
+      que espera coagulant_roadmap.txt [3].
 
   [3] Boundary-debt a revisar (§9.c): el comportamiento de scavenger-pickup (elegir
       target, animación, timing) huele a comportamiento NPC → territorio de Cortex. NO
       se decide ahora; se re-homea SOLO si se confirma como behavior al diseñar Cortex.
       Es el patrón que CRG-47 nombra: el dueño de una frontera se decide EN DISEÑO, y
       la deuda se declara ahora para no perderla.
+      El voto de alcance del 2026-08-22 lo REFUERZA —scavenger no es armadura, escudo,
+      limb ni penetración— pero NO lo cierra: corpus-cortex hoy no tiene código, así
+      que re-homearlo sería mudarlo a un depósito. Sigue sin decidirse.
 
-  [4] Semántica del arma en mano (cross-ref, deferred): persistencia de munición del
-      cargador, sistema de cargadores/munición (ARC9 custom vs HL2, con toggle),
-      condición→traba de disparo. Son hallazgos in-game del autor (2026-07-11) que
-      caen en el dominio de Caliber pero se capturaron ENTEROS en cargo_roadmap.txt
-      §16-22 — viven junto al pickup/drop/UI de Cargo, que es su otra mitad. La
-      frontera Cargo/Caliber se decide al diseñar ese bloque. No se duplica el detalle
-      acá (regla del flujo §5): ver ese doc.
+  [4] Semántica del arma en mano — RE-HOMEADO A CARGO (voto de alcance del autor,
+      2026-08-22). La persistencia de munición del cargador y el sistema de
+      cargadores/munición (ARC9 custom vs HL2, con toggle) NO son de Caliber: el módulo
+      no ve munición como inventario. Eran hallazgos in-game del autor (2026-07-11) y ya
+      vivían ENTEROS en cargo_roadmap.txt §16-22, junto al pickup/drop/UI que es su otra
+      mitad — así que el re-homeo no mueve una sola línea de texto: sólo deja de
+      reclamarlos desde acá.
+      Queda UN resto discutible: condición -> traba de disparo, que es armadura-adyacente
+      (la condición de un objeto frente a su rendimiento). No se decide ahora; se decide
+      con el dueño de la condición, que por el voto del mismo día es Cargo.
 
 
 3. DEUDA HEREDADA (viaja sin tocar — §10 de la arquitectura, cita CAL-21)

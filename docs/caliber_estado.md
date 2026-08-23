@@ -5,7 +5,7 @@
 > secciones ni historial). El historial vive en `git` + [`CHANGELOG.md`](CHANGELOG.md).
 > Si crece de una pantalla, está mal redactado: recortar.
 
-**Última actualización:** 2026-08-17 (paridad ADS verificada en juego el 2026-07-09 — Block 2 CERRADO, commiteado y publicado en GitHub, `main`; los docs pasaron la **pasada de veracidad del 2026-07-14**. El 2026-07-30 entra, se verifica en juego y se publica el primer fix de runtime post-Block 2. El 2026-08-17 entra, se verifica en juego y se publica un segundo fix de runtime — el árbol está **al día con `origin/main`**)
+**Última actualización:** 2026-08-22 (paridad ADS verificada en juego el 2026-07-09 — Block 2 CERRADO, commiteado y publicado en GitHub, `main`; los docs pasaron la **pasada de veracidad del 2026-07-14**. El 2026-07-30 entra, se verifica en juego y se publica el primer fix de runtime post-Block 2. El 2026-08-17 entra, se verifica en juego y se publica un segundo fix de runtime — el árbol está **al día con `origin/main`**. El 2026-08-22 entra una sesión de **ORIENTACIÓN, sin código**: se releva el estado real del lado jugador contra el código y se vota el alcance del módulo — orden y votos en [`caliber_roadmap.txt`](caliber_roadmap.txt) `[1]`)
 
 ---
 
@@ -38,13 +38,23 @@
   que editar el repo se refleja directo en el juego.
 - **Limbs API NPC-only** (§9.b): `HealLimbs` y los pools asumen `npc.Caliber_HP_*` /
   `IsNPC()`. Se vuelve agnóstica recién con el pipeline de armadura de jugador.
+- **Dos controles del panel Options prometen un sistema que NO EXISTE** (relevado el
+  2026-08-22): el checkbox *"Enable Player armor system"* y el slider *"Player Spawn
+  Armor"*. `caliber_ply_arm` se crea en `corpus_caliber_core.lua:7` y **no se lee en
+  ninguna parte del módulo**; `caliber_enabled_ply` sólo se lee en `IsArmored`/
+  `GetArmorReason`, cuya rama de jugador es alcanzable **únicamente desde `InspectNPC`**
+  (dump de debug). El único hook de daño del módulo es `ScaleNPCDamage`, que el engine
+  no dispara para jugadores. **Se apagan o se marcan ANTES de medir nada sobre el
+  jugador** — es la precondición del paso 1 del tramo (roadmap `[1]`).
 - **Ruido de pasos recurrente en NPCs:** confirmado **externo a Corpus/Caliber** (se
   reproduce con el módulo inerte; locomoción paridad exacta con ADS). Fuera de scope.
 
 ## Próximo paso
 
 1. **Block 3 de Caliber:** pipeline de armadura de jugador (alcance nuevo, NPC→agnóstico).
-   Ver [`caliber_roadmap.txt`](caliber_roadmap.txt).
+   El diseño **NO cerró**: el paso 1 es una **medición** —el reparto real de `ply:Armor()`
+   en Gmod— y no código. Orden de los cuatro pasos y lo votado el 2026-08-22, en
+   [`caliber_roadmap.txt`](caliber_roadmap.txt) `[1]`.
 
 ---
 
