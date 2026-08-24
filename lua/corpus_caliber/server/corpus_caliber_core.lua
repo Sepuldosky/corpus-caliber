@@ -271,16 +271,28 @@ concommand.Add("caliber_ply_probe", function(ply, cmd, args)
             Corpus.Log("caliber", "[Caliber PROBE] el modelo no tiene hitbox con hitgroup " .. hgReq)
             return
         end
-        -- Se dispara RADIALMENTE DESDE AFUERA: del centro del cuerpo hacia el centro
-        -- del hitbox y 48 u mas alla. Asi el hitbox buscado es lo PRIMERO que la bala
-        -- encuentra, sea la cabeza (el radio apunta arriba), una pierna (abajo) o un
-        -- brazo (al costado). Un origen fijo adelante del jugador atraviesa el torso
-        -- antes de llegar a cualquier otra cosa, que es como se perdieron las dos
-        -- corridas de hitgroup del 2026-08-22.
+        -- Se dispara HORIZONTALMENTE, A LA ALTURA DEL HITBOX BUSCADO, desde 48 u
+        -- afuera. La direccion es el radial del centro del cuerpo al centro del
+        -- hitbox, pero APLANADO al plano XY.
+        --
+        -- ⚠ El aplanado NO es cosmetico. Un radial 3D apunta HACIA ABAJO para todo
+        -- hitgroup por debajo del centro del cuerpo: el hitbox de una rodilla esta a
+        -- ~16 u del piso, y 48 u mas alla en esa direccion pone el origen de la bala
+        -- BAJO EL SUELO. Eso no da MEDICION DESCARTADA —da A NO_OBSERVADO— y se lee
+        -- como que el hook no corrio, que es un sintoma que acusa al lugar equivocado.
+        --
+        -- Lo que separa un hitbox de los demas es su ALTURA, no su radio: a la altura
+        -- de la rodilla no hay torso, y a la altura del craneo no hay hombros. El
+        -- componente lateral solo decide DESDE QUE LADO entra, que es lo que hace
+        -- falta para los brazos y las piernas.
         local out = hbPos - ply:WorldSpaceCenter()
-        -- El pecho vive JUSTO en el centro: ahi el radio es casi nulo y no orienta
-        -- nada. Se cae al frente del jugador, que para el torso es correcto.
+        out.z = 0
+        -- Cabeza, pecho y estomago viven sobre el eje: ahi el radial horizontal es
+        -- casi nulo y no orienta nada. Se cae al frente del jugador, que para una
+        -- zona central es correcto — y a la altura del hitbox sigue siendo el unico
+        -- que la bala encuentra.
         if out:Length() < 4 then out = ply:GetAimVector() * -1 end
+        out.z = 0
         out:Normalize()
         local src = hbPos + out * 48
         local b = {}
