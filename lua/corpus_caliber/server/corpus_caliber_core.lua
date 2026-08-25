@@ -214,10 +214,32 @@ concommand.Add("caliber_ply_probe", function(ply, cmd, args)
         return
     end
 
-    local dmgReq = tonumber(args[1]) or 100
+    -- ⚠ Un argumento presente que NO es numero CORTA. Antes caia al default via
+    -- `tonumber(x) or 100`, y eso convierte un typo en una medicion: en la ronda 2 se
+    -- tipeo `caliber_ply_probe reset` —un guion bajo de menos— y en vez de resetear
+    -- disparo un probe de 100 de daño al pecho, dejando al jugador en hp=980/armor=20
+    -- y una linea de resultados creible en el log. Un comando que no falla ante un
+    -- nombre equivocado no protege: contesta otra cosa.
+    local function ProbeArg(v, def, cual)
+        if v == nil or v == "" then return def, nil end
+        local n = tonumber(v)
+        if n == nil then return nil, cual .. "=" .. tostring(v) end
+        return n, nil
+    end
+
+    local dmgReq, e1 = ProbeArg(args[1], 100, "dmg")
+    local hgRaw,  e3 = ProbeArg(args[3], 2,   "hg")
+    local armRaw, e4 = ProbeArg(args[4], 100, "armor")
+    local malo = e1 or e3 or e4
+    if malo then
+        Corpus.Log("caliber", "[Caliber PROBE] argumento no numerico: " .. malo)
+        Corpus.Log("caliber", "[Caliber PROBE] uso  caliber_ply_probe dmg tipo hg armor via")
+        Corpus.Log("caliber", "[Caliber PROBE] el reset es caliber_ply_probe_reset, con guion bajo")
+        return
+    end
     local tName  = string.lower(args[2] or "bullet")
-    local hgReq  = math.Clamp(math.floor(tonumber(args[3]) or 2), 0, 7)
-    local armReq = math.Clamp(tonumber(args[4]) or 100, 0, 100)
+    local hgReq  = math.Clamp(math.floor(hgRaw), 0, 7)
+    local armReq = math.Clamp(armRaw, 0, 100)
     local via    = string.lower(args[5] or "shot")
 
     local dmgType = PROBE_DMG_TYPES[tName]
@@ -286,14 +308,27 @@ concommand.Add("caliber_ply_probe", function(ply, cmd, args)
         -- componente lateral solo decide DESDE QUE LADO entra, que es lo que hace
         -- falta para los brazos y las piernas.
         local out = hbPos - ply:WorldSpaceCenter()
-        out.z = 0
-        -- Cabeza, pecho y estomago viven sobre el eje: ahi el radial horizontal es
-        -- casi nulo y no orienta nada. Se cae al frente del jugador, que para una
-        -- zona central es correcto — y a la altura del hitbox sigue siendo el unico
-        -- que la bala encuentra.
-        if out:Length() < 4 then out = ply:GetAimVector() * -1 end
-        out.z = 0
-        out:Normalize()
+        if out.z > 8 then
+            -- ARRIBA del centro del cuerpo: se conserva el radial 3D y se dispara
+            -- HACIA ABAJO sobre la zona. El problema que obligo a aplanar es del suelo
+            -- y solo existe hacia abajo — por encima de la cabeza no hay nada que la
+            -- tape. Y hace falta: con el radial aplanado la cabeza queda en el caso
+            -- degenerado (vive sobre el eje del cuerpo) y el tiro sale de frente, donde
+            -- el hitbox de TORSO de varios modelos llega hasta la mandibula. Medido en
+            -- la ronda 2: la J14 le pego a hg=1 y la J4, tres corridas despues, le pego
+            -- a hg=2 pidiendo lo mismo. Un sorteo, no un apuntado.
+            out:Normalize()
+        else
+            -- AL NIVEL o POR DEBAJO: se aplana al plano XY y se dispara horizontal, a la
+            -- altura del hitbox. Un radial 3D hacia abajo pone el Src bajo el suelo.
+            out.z = 0
+            -- Pecho y estomago viven sobre el eje: ahi el radial horizontal es casi nulo
+            -- y no orienta nada. Se cae al frente del jugador, que para una zona central
+            -- es correcto — a esa altura no hay otra cosa que la bala encuentre antes.
+            if out:Length() < 4 then out = ply:GetAimVector() * -1 end
+            out.z = 0
+            out:Normalize()
+        end
         local src = hbPos + out * 48
         local b = {}
         b.Num      = 1
