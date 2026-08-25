@@ -99,20 +99,16 @@ Ya movió el [4] y matizó el [3].
            TakeDamageInfo da los mismos dos cocientes. Eso es lo que permite comparar la
            fila de tipos (que va por TakeDamageInfo) contra las de bala.
 
-           ⚠ LO QUE SIGUE SIN MEDIRSE: el escalado de hitgroup sobre el JUGADOR. La
-           corrida salió inválida por un defecto del instrumento —apuntaba al origen del
-           hueso, que está en la articulación y cae adentro del hitbox del padre, así que
-           pidiendo cabeza pegaba en pecho y pidiendo pierna pegaba en estómago— y el
-           probe imprimía el aviso Y ADEMÁS el resultado, así que el número le ganó al
-           aviso. Arreglado el 2026-08-22 (tiro radial desde afuera + la medición se
-           DESCARTA sin imprimir cocientes). Se repite con la planilla, fila c4.
+           EL ESCALADO DE HITGROUP DEL JUGADOR, MEDIDO sobre las SIETE zonas en la
+           ronda 2 (2026-08-23): cabeza 2,00 · pecho 1,00 · estomago 1,00 · los cuatro
+           miembros 0,25. NO es del engine — lo aplica GM:ScalePlayerDamage del gamemode
+           base, en Lua. Consecuencia dura: caliber_engine_hitgroup_compensation NO se le
+           aplica al jugador, porque del lado NPC cancela un escalado NATIVO posterior al
+           hook y aca el escalado ya vino aplicado antes. Detalle en
+           Caliber_Architecture.md §13.0.
 
-           ⚠ Y hay un tercero que escribe el mismo pool y está MONTADO: el addon de
-           Workshop "Warzone Armor System" (3422752213). La medición de arriba no lo
-           acusa —los tres renglones caen exactos sobre la fórmula pura del engine, en
-           las dos ramas— pero el autor decidió sacarlo, y sacar un escritor del pool
-           es un cambio al sistema medido: al desuscribirlo hay que RE-CORRER las filas
-           c5 y c6 y confirmar que los números no se movieron. Son dos comandos.
+           EL PASO 1 CIERRA ACA. Las tres preguntas que lo formaban —el reparto, el tipo
+           de daño y el escalado— tienen numero.
 
            PRECONDICIÓN [HECHA 2026-08-22, pendiente de pasada en juego]: los dos
            controles muertos del panel Options salieron de la UI — el checkbox "Enable

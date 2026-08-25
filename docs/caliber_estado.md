@@ -5,7 +5,7 @@
 > secciones ni historial). El historial vive en `git` + [`CHANGELOG.md`](CHANGELOG.md).
 > Si crece de una pantalla, está mal redactado: recortar.
 
-**Última actualización:** 2026-08-22 (paridad ADS verificada en juego el 2026-07-09 — Block 2 CERRADO, commiteado y publicado en GitHub, `main`; los docs pasaron la **pasada de veracidad del 2026-07-14**. El 2026-07-30 entra, se verifica en juego y se publica el primer fix de runtime post-Block 2. El 2026-08-17 entra, se verifica en juego y se publica un segundo fix de runtime — el árbol está **al día con `origin/main`**. El 2026-08-22 entran DOS sesiones. La primera, de **ORIENTACIÓN sin código**: releva el estado real del lado jugador contra el código y vota el alcance del módulo — orden y votos en [`caliber_roadmap.txt`](caliber_roadmap.txt) `[1]`. La segunda abre el **tramo 0 del Block 3**. El 2026-08-22 el autor **corre la planilla en juego** (12/13; la que falta es la única que el instrumento no supo medir) y el 2026-08-23 el tramo 0 **CIERRA**: el número medido baja a los docs y el contrato Cargo↔Caliber se documenta en `Caliber_Architecture.md` §13)
+**Última actualización:** 2026-08-22 (paridad ADS verificada en juego el 2026-07-09 — Block 2 CERRADO, commiteado y publicado en GitHub, `main`; los docs pasaron la **pasada de veracidad del 2026-07-14**. El 2026-07-30 entra, se verifica en juego y se publica el primer fix de runtime post-Block 2. El 2026-08-17 entra, se verifica en juego y se publica un segundo fix de runtime — el árbol está **al día con `origin/main`**. El 2026-08-22 entran DOS sesiones. La primera, de **ORIENTACIÓN sin código**: releva el estado real del lado jugador contra el código y vota el alcance del módulo — orden y votos en [`caliber_roadmap.txt`](caliber_roadmap.txt) `[1]`. La segunda abre el **tramo 0 del Block 3**. El 2026-08-22 el autor **corre la planilla en juego** (12/13) y el 2026-08-23 el tramo 0 **CIERRA**: el número medido baja a los docs, el contrato Cargo↔Caliber se documenta en `Caliber_Architecture.md` §13, y una **ronda 2** de 4 filas (3/4, y la que falta no bloquea) cierra el paso 1 entero midiendo el escalado de hitgroup sobre las siete zonas)
 
 ---
 
@@ -44,7 +44,9 @@
   daño, pero el pool se lleva **0,8 y no 0,4** — `ARMOR_BONUS` acá es 1,0, o sea que **un
   punto de armadura absorbe exactamente un punto de daño**. Con el pool escaso absorbe
   punto por punto lo que le queda y la vida se lleva el resto. **`DMG_FALL` no toca el
-  pool.** Consecuencia para el paso 2: `ply:Armor()` y los puntos de escudo **ya están en
+  pool.** Y el **escalado de hitgroup** quedó medido en la ronda 2 sobre las siete zonas:
+  cabeza **2,00**, torso y estómago 1,00, los cuatro miembros **0,25** — y es de
+  `GM:ScalePlayerDamage` del gamemode base, **en Lua**, no del engine. Consecuencia para el paso 2: `ply:Armor()` y los puntos de escudo **ya están en
   la misma unidad**, y el `hev` de pool 50 contra el tope de 100 es una perilla de balance
   y no una contradicción de escalas.
 - **El contrato de datos Cargo↔Caliber está DISEÑADO y votado** — `Caliber_Architecture.md`
@@ -70,19 +72,16 @@
 
 ## Próximo paso
 
-1. **Re-correr la fila J4** de `dev/checks/caliber-b3-tramo0.html` con el probe arreglado.
-   Es la única pregunta del tramo 0 que sigue sin respuesta: el escalado de hitgroup sobre
-   el jugador. Criterio: **2,0000** con `hg=1`, **1,0000** con `hg=2`, **0,2500** con
-   `hg=6`. Se sabe por lectura del árbol que en el jugador ese escalado lo aplica
-   `GM:ScalePlayerDamage` del gamemode base **en Lua** —no el engine, a diferencia del lado
-   NPC—, así que si se confirma, `caliber_engine_hitgroup_compensation` **no se le aplica
-   al jugador**.
-2. **Si se desuscribe *Warzone Armor System*** (el addon de Workshop que escribe el mismo
-   pool y está montado): **re-correr J5 y J6**. Sacar un escritor del pool es un cambio al
-   sistema medido. Son dos comandos.
-3. **El paso 2 del tramo:** bajar el mapeo `ply:Armor()` = pool del escudo y anular el
-   goteo del 0,2. Ya tiene el número y el contrato delante — se escribe contra
-   `Caliber_Architecture.md` §13.
+1. **El paso 2 del tramo, y ya no falta nada para escribirlo.** Bajar el mapeo
+   `ply:Armor()` = pool del escudo y anular el goteo del 0,2, replicando que `DMG_FALL` no
+   toca el pool. Se escribe contra [`Caliber_Architecture.md`](Caliber_Architecture.md)
+   §13, que tiene el contrato y los tres números.
+2. **Ojo al escribirlo:** `caliber_engine_hitgroup_compensation` **no se le aplica al
+   jugador** — el escalado de hitgroup ya viene aplicado desde `GM:ScalePlayerDamage` antes
+   de que el pipeline lo vea, así que dividir otra vez lo contaría dos veces.
+3. **Deuda chica del instrumento, `[PENDIENTE]` de una pasada corta:** los dos parches del
+   2026-08-23 — un argumento no numérico corta, y el radial se aplana sólo hacia abajo. El
+   segundo arregla un **sorteo**, así que su criterio es tres corridas seguidas, no una.
 
 ---
 

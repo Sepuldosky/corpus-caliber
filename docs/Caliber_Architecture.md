@@ -355,13 +355,36 @@ intacta. Es el gemelo exacto de lo que `BYPASS_TYPES` ya marca para el melee del
 escudo, y el paso 2 tiene que replicarlo: si no, la caída pega distinto según cuánto
 escudo tengas, que es el mismo defecto que `BYPASS_TYPES` existe para evitar.
 
-> **Lo que sigue sin medirse:** el escalado de hitgroup sobre el jugador. Se sabe por
-> lectura del árbol que en el jugador el 2,0× de cabeza y el 0,25× de miembros **no son
-> del engine** — los aplica `GM:ScalePlayerDamage` del gamemode base, en Lua
-> (`gamemodes/base/gamemode/player.lua`). Es un caso **distinto** del lado NPC, donde
-> `caliber_engine_hitgroup_compensation` cancela un escalado nativo que corre *después*
-> del hook. Si la medición lo confirma, **esa compensación no se le aplica al jugador**.
-> Fila `J4` de la planilla, pendiente de re-corrida.
+**El escalado de hitgroup del jugador, medido sobre las siete zonas** (ronda 2,
+2026-08-23, fila `J14`). Es el cociente entre el daño que entra a `ScalePlayerDamage` y el
+que sale hacia `OnTakeDamage`:
+
+| hitgroup | zona | escalado |
+|---:|---|---:|
+| 1 | cabeza | **2,00** |
+| 2 | pecho | 1,00 |
+| 3 | estómago | 1,00 |
+| 4 | brazo izq. | **0,25** |
+| 5 | brazo der. | **0,25** |
+| 6 | pierna izq. | **0,25** |
+| 7 | pierna der. | **0,25** |
+
+**No es del engine: es Lua.** Ese trío 2 / 1 / 0,25 es exactamente lo que aplica
+`GM:ScalePlayerDamage` del gamemode base (`gamemodes/base/gamemode/player.lua`), y el
+caso es **distinto** del lado NPC, donde el escalado es *nativo* y corre **después** del
+hook — que es lo que `caliber_engine_hitgroup_compensation` existe para cancelar.
+
+> **CONSECUENCIA DURA para el paso 2: esa compensación NO se le aplica al jugador.**
+> Del lado NPC divide por el multiplicador nativo para que la pérdida de HP coincida con
+> el daño que Caliber calculó. Del lado jugador el multiplicador ya está aplicado **antes**
+> de que el pipeline lo vea, así que dividir otra vez lo contaría dos veces: un headshot
+> pegaría la mitad de lo que debe y un tiro a la pierna el cuádruple.
+
+> ⚠ **Y el escalado depende de una cadena que puede cortarse en silencio.** `GM:ScalePlayerDamage`
+> es el *método* del gamemode, y corre **después** de todos los `hook.Add` del mismo evento;
+> `hook.Call` **aborta la cadena** cuando un listener devuelve un valor. Si algún día el
+> trío sale **1,00 en las siete**, la causa no está en Caliber: hay un listener nuevo
+> devolviendo algo. Ver §13.8.
 
 ### 13.1 Quién inicia — **CAL-24**
 

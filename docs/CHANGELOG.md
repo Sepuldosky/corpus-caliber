@@ -672,7 +672,8 @@ permite comparar la **J8** (por `TakeDamageInfo`) contra las filas de bala.
   cocientes bien formados. La fila se marcó PASA leyendo los números, que eran de un
   impacto en el torso. **Un instrumento que avisa y además contesta no avisa: contesta.**
   Ahora la medición se **DESCARTA** — no se imprime un solo cociente, y el `escalado entre
-  A y B` sale `DESCARTADO`. **[PENDIENTE]** — lo cierra la re-corrida de la **J4**.
+  A y B` sale `DESCARTADO`. **[APLICADO 2026-08-23]** — lo cerró la **J14**, que pidió
+  las siete zonas y las siete llegaron.
 
 - PARCHE 2 — chore(docs): las 13 filas de la planilla se renombran a **J1..J13**. Nacieron
   etiquetadas `P-1`/`P-2`/`Q1..Q6`, y **P y Q son letras de sección de planilla ya
@@ -803,3 +804,78 @@ de prolijidad de propiedad.
 archivo, con `rg --no-ignore` y denominador. El detalle completo, con las tres piezas del archivo,
 vive en `../../corpus-cortex/docs/Cortex_Escuadrones_Arquitectura.md` §1 y §2, y **acá no se
 duplica**. No commiteado ni pusheado (GIT-7).
+
+---
+
+## PARCHES DE sesión Block 3, tramo 0 — la ronda 2 cierra el paso 1 — 2026-08-23
+
+`dev/checks/caliber-b3-tramo0-r2.html`, cuatro filas: **3 pasa · 0 falla · 1 sin correr**.
+Y la que no corrió **no bloquea nada**, porque la pregunta que hacía la contestó otra fila
+con más cobertura.
+
+### El escalado de hitgroup, que era lo único sin medir
+
+La **J14** pidió las siete zonas y **las siete llegaron** — el arreglo del apuntado
+funciona. De regalo dejó el número que la J4 iba a buscar, y sobre siete zonas en vez de
+tres:
+
+| hitgroup | 1 cabeza | 2 pecho | 3 estómago | 4 y 5 brazos | 6 y 7 piernas |
+|---|---:|---:|---:|---:|---:|
+| escalado A→B | **2,00** | 1,00 | 1,00 | **0,25** | **0,25** |
+
+Es exactamente `GM:ScalePlayerDamage` del gamemode base, **en Lua**. Baja a
+[`Caliber_Architecture.md`](Caliber_Architecture.md) §13.0 con su consecuencia dura:
+**`caliber_engine_hitgroup_compensation` NO se le aplica al jugador** — del lado NPC
+cancela un escalado *nativo* posterior al hook, y acá el escalado ya vino aplicado antes,
+así que dividir otra vez lo contaría dos veces (un headshot pegaría la mitad y un tiro a
+la pierna el cuádruple).
+
+**Con eso el paso 1 del tramo `[1]` CIERRA ENTERO.** Sus tres preguntas —el reparto, el
+tipo de daño y el escalado— tienen número.
+
+### Warzone Armor System no estaba en el camino
+
+**J5 y J6 dieron los mismos números que la ronda 1**, con el addon ya desuscrito:
+`0.2000`/`0.8000` y `perdido hp=90 armor=10`. La constante del tramo es del engine y no
+había un tercero falseándola. Nada que corregir en los tres sitios que la citan.
+
+### Y la J4 no corrió — su propio criterio lo dice
+
+Pidiendo `hg=1` llegó `hg=2`, y el probe imprimió `MEDICION DESCARTADA` sin un solo
+cociente: **el mecanismo que se escribió el 2026-08-23 funcionó exactamente como debía**,
+que es lo contrario de lo que pasó en la ronda 1. La fila queda `SIN CORRER` y no bloquea:
+la J14 ya midió esa misma zona, en la misma sesión, y le pegó.
+
+**Pero la diferencia entre las dos ES un dato: el tiro a la cabeza era un SORTEO.** Ver el
+PARCHE 2.
+
+- PARCHE 1 — fix(core): **un argumento no numérico ahora CORTA.** En la corrida se tipeó
+  `caliber_ply_probe reset` —un guion bajo de menos— y en vez de resetear **disparó un probe
+  de 100 de daño al pecho**, dejando al jugador en `hp=980 armor=20` y una línea de
+  resultados perfectamente creíble en el log. La causa era el idioma `tonumber(x) or 100`:
+  el default tapa el error. **Un comando que no falla ante un nombre equivocado no protege:
+  contesta otra cosa** — y contesta con la forma exacta de una medición válida.
+  **[PENDIENTE]**
+
+- PARCHE 2 — fix(core): **el radial se aplana SÓLO hacia abajo.** La J14 le pegó a la cabeza
+  y la J4, tres corridas después, le pegó al pecho pidiendo lo mismo: un sorteo, no un
+  apuntado. La causa es que con el radial aplanado la cabeza cae en el **caso degenerado**
+  —vive sobre el eje del cuerpo, así que el radial horizontal es casi nulo— y el tiro sale
+  **de frente**, donde el hitbox de TORSO de varios modelos llega hasta la mandíbula.
+  El aplanado se había hecho porque un radial 3D hacia abajo pone el `Src` bajo el suelo,
+  **y ese problema sólo existe hacia abajo**: por encima de la cabeza no hay nada que la
+  tape. Ahora `out.z > 8` conserva el radial 3D y dispara hacia abajo sobre la zona; el
+  resto sigue aplanado. **[PENDIENTE]**
+
+> **Nota de lectura sobre la J14, para que nadie lea de más:** corrió con `dmg=1` a
+> propósito —mide **si la bala entra por donde se pidió**, no el reparto— y a ese daño los
+> cocientes que imprime son **ruido de redondeo**: la armadura es entera, así que un hit de
+> 0,25 le saca 1 punto y `armor_por_punto` sale `4.0000`. Peor: `hg=5` restó 1 de vida y
+> `hg=4`, `hg=6` y `hg=7` restaron 0, con la misma entrada. **Los cocientes del tramo salen
+> de J5/J6, que corren a 100.**
+
+Verificación (PASO 4, del autor): los dos parches son del instrumento y no del pipeline.
+Se cierran con una pasada corta — `caliber_ply_probe reset` tiene que imprimir el aviso de
+argumento no numérico y **no disparar**, y `caliber_ply_probe 100 bullet 1 100 shot` tiene
+que dar `hg=1` **tres veces seguidas**, porque lo que se está arreglando es un sorteo y un
+caso suelto no juzga.
