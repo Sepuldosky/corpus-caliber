@@ -124,21 +124,32 @@ Ya movió el [4] y matizó el [3].
            reparto, si el paso 2 puede vivir en ScalePlayerDamage o hay que ir a
            EntityTakeDamage. Un FALLA en una fila de medición es el hallazgo, no un defecto.
 
-        2. [DESBLOQUEADO por el paso 1] Bajar el mapeo ply:Armor() = POOL DEL ESCUDO
-           (no de la armadura) y anular el goteo del engine para el evento de daño.
-           Con el número medido, el mapeo es MÁS limpio de lo que se esperaba: el pool
-           del engine ya absorbe 1:1, así que `ply:Armor()` y los puntos de escudo están
-           en la MISMA unidad y no hay factor de conversión que inventar. Lo que hay que
-           anular es sólo el goteo del 0,2 — y el tope de 100 del engine contra el pool
-           50 del tipo `hev` deja de ser una contradicción de escalas: son 50 puntos de
-           daño absorbidos contra 100, o sea una decisión de balance, no de unidades.
-           Ojo con DMG_FALL, que hoy no toca el pool. La colisión no es "dos
-           mitigaciones": es que el pool del engine gotea SIEMPRE (~20% a la vida) y el
-           escudo de Caliber es NO-OVERFLOW (ProcessShield hace di:SetDamage(0) incluso
-           al romperse) — dos filosofías opuestas del mismo pool. Un número global no
-           puede representar armadura por zona, pero SÍ es la forma de un pool de
-           escudo. Ojo con BYPASS_TYPES (melee): ahí el goteo tampoco debe correr, o el
-           melee pega distinto según cuánto escudo tengas.
+        2. [ESCRITO 2026-08-25 — SIN CORRER EN JUEGO] El mapeo ply:Armor() = POOL DEL
+           ESCUDO y la anulacion del goteo. La decision que lo abria la voto el autor:
+           ply:Armor() es el ALMACEN del pool y no un espejo de sh.hp -- CAL-27, con sede
+           en Caliber_Architecture.md §13.9, que es donde vive el detalle. Aca solo el
+           estado y el criterio de entrada del paso siguiente, que es lo que este doc hace.
+
+           NO ESTA CERRADO. El codigo esta escrito y la planilla dev/checks/caliber-b3-paso2.html
+           (seccion K, 16 filas) NO CORRIO. Los parches 1-7 del CHANGELOG del 2026-08-25
+           siguen [PENDIENTE], y para GMod "verificado" es confirmado en juego.
+
+           LO QUE LA MEDICION DEL PASO 1 HIZO MAS FACIL, y se cumplio: como el pool absorbe
+           1:1, no hubo factor de conversion que inventar. Y de los dos costos que la
+           decision le cargaba al almacen unico, UNO NO EXISTIA -- el techo de 100 no es del
+           engine sino PLAYER.MaxArmor del gamemode base, o sea Lua. Es el mismo hallazgo de
+           FORMA que el paso 1 hizo con el escalado de hitgroup: por segunda vez en el mismo
+           tramo, una pared citada como del motor resulto ser del gamemode. ⚠ Pero eso esta
+           LEIDO EN DISCO Y NO MEDIDO, y la fila K4 existe para medirlo.
+
+           DOS AFIRMACIONES SIN MEDIR, cada una con su fila, y en las dos un FALLA es el
+           hallazgo: (K4) que el techo del almacen se pueda mover por encima de 100; (K16)
+           en que orden corren el reparto del engine y PostEntityTakeDamage -- el tramo 0
+           midio que el pool esta entero en EntityTakeDamage y NADA MAS.
+
+           LO QUE SE DECLARO Y NO SE ARREGLO: el tope literal 100 de cargo_hl2_battery
+           (§13.5) es de CARGO y sigue en pie; y DMG_DROWN/DMG_POISON/DMG_RADIATION drenan
+           el escudo del jugador, porque HL2 los excluye pero en este build no se midieron.
 
         3. La indirección hitgroup -> SLOT DE ZONA en el perfil de armadura: varios
            hitgroups apuntan al mismo slot, y la durabilidad y el material viven en el
@@ -159,6 +170,13 @@ Ya movió el [4] y matizó el [3].
       El bloque "LO VOTADO EL 2026-08-22" que vivía acá SE BORRÓ al escribir esa sección,
       que es lo que este mismo doc decía que iba a pasar: el detalle de diseño no se
       duplica en el roadmap (§0), y este doc es INTENCIÓN, no autoridad.
+
+      EL PASO 2 BAJO A LA ARQUITECTURA (2026-08-25) en §13.9, sub-seccion nueva y
+      autocontenida: la decision del autor y que la volco, el criterio del punto de entrada
+      (EntityTakeDamage y no ScalePlayerDamage, con su tabla), los cuatro desenlaces contra
+      lo que el engine haria, la lista de bypass, el ciclo de vida agnostico, y lo que NO se
+      toco. CAL-27 en ids.yaml en el mismo parche (FLU-36) y la letra K registrada antes de
+      usarse (FLU-30).
 
       LA MITAD DE CARGO YA ESTABA CONSTRUIDA, y ningún doc lo registraba: el ítem-armadura
       pesa, se equipa y persiste condición por zona; el sub-slot `accessory` (filtro

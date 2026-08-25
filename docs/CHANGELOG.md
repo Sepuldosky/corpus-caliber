@@ -807,6 +807,151 @@ duplica**. No commiteado ni pusheado (GIT-7).
 
 ---
 
+## PARCHES DE sesión Block 3, paso 2 — `ply:Armor()` es el POOL DEL ESCUDO — 2026-08-25
+
+El tramo 0 midió el reparto; este paso lo **usa**. Al terminar, el jugador tiene un punto de
+entrada de daño en Caliber, el pool del engine **es** el pool del escudo, y el goteo del 0,2
+no corre para el evento de daño.
+
+**Los parches de código nacen `[PENDIENTE]`**: la planilla
+`dev/checks/caliber-b3-paso2.html` (sección **K**, 16 filas) está escrita y **no corrió en
+juego**. No se marca `[APLICADO]` nada hasta que corra.
+
+**No cierra el Block 3**: el paso 3 (indirección hitgroup → slot) y el paso 4 (pestaña
+*Armor (Player)*) siguen abiertos y no se tocaron.
+
+### La decisión que la abría, votada por el autor
+
+**¿`ply:Armor()` es el ALMACÉN del pool, o un ESPEJO de `sh.hp`?** El autor votó **el
+almacén** (**CAL-27**, sede [`Caliber_Architecture.md`](Caliber_Architecture.md) §13.9). Lo
+volcó §13.0: como el pool absorbe **1:1**, el almacén único **no pierde precisión**, y a
+cambio la barra del StatusPanel, `cargo_hl2_battery` y cualquier tercero quedan correctos
+**sin saber nada de Caliber**. El espejo exigía interceptar toda escritura ajena o perderla
+en silencio — el modo de falla que CRG-78 nombra.
+
+> ⚠ **Y de los dos costos que se le cargaban al almacén, uno no existía.** El "techo de 100
+> del engine" **no es del engine**: es `PLAYER.MaxArmor` del gamemode base
+> (`player_class/player_default.lua:19`), aplicado con `ply:SetMaxArmor()` en cada spawn.
+> Es Lua — **el mismo hallazgo de forma que §13.0 hizo con el escalado de hitgroup**, dos
+> veces en el mismo tramo una pared citada como del motor resultó ser del gamemode. Queda un
+> solo costo real: `SetArmor` guarda un entero, y de ahí sale `sh.frac`.
+> ⚠ **Esa afirmación está LEÍDA EN DISCO Y NO MEDIDA**, y la fila **K4** existe para medirla.
+
+- PARCHE 1 — feat(core): **punto de entrada de daño del jugador**, hook `EntityTakeDamage`
+  `Caliber_Core_Player` en `corpus_caliber_core.lua`. El módulo no tenía ninguno: el único
+  hook de daño era `ScaleNPCDamage`, que el engine no dispara para jugadores.
+  **Por qué ahí y no en `ScalePlayerDamage`**, que era la otra opción medida: *(a)* aquél
+  **sólo cubre trace attacks** —una caída, un ahogo o una explosión por radio no pasan por
+  ahí— y un pre-filtro montado en él deja agujeros que no dan ningún error; *(b)* **el
+  hitgroup no hace falta**, que era lo único que aportaba: el escudo es un pool global
+  (CAL-14) y `ProcessShield` recibe `hg` y **no lo lee en una sola línea**; *(c)* y así la
+  trampa de T2 **deja de ser una disciplina y pasa a ser imposible** — la forma segura de no
+  cortar esa cadena es no estar en ella. ⚠ Se descubrió que **`EntityTakeDamage` tiene la
+  misma trampa** y no estaba escrita en ningún lado: `GM:EntityTakeDamage` también es el
+  método del gamemode. El listener cierra **sin `return` con valor**. **[PENDIENTE]**
+
+- PARCHE 2 — feat(shields): **el ciclo de vida deja de ser NPC-only**. La mecánica nunca lo
+  fue. `ShieldNPCs` → `ShieldEnts`; `InitShield` acepta las dos especies; `RefreshAllShields`
+  y `RefreshShieldsForClass` iteran jugadores; los cinco helpers locales dejan de llamar
+  `npc` a un parámetro que ahora recibe jugadores. La puerta del jugador es **`PlayerSpawn`**
+  y no `OnEntityCreated` —donde todavía no pasó `player_manager.SetPlayerClass`, así que el
+  `SetMaxArmor` se lo pisaría el spawn—, y la limpieza es **`PlayerDeath`**, gemelo de
+  `OnNPCKilled`, que no dispara para jugadores. ⚠ Los dos cierran **sin `return` con valor**:
+  del otro lado de `PlayerSpawn` está `GM:PlayerSpawn` entero — loadout, playermodel y el
+  gate `ready` de Cargo. **[PENDIENTE]**
+
+- PARCHE 3 — feat(shields): **el pool, y dónde vive** (CAL-27). `PoolGet`/`PoolSet`/`SeedPool`,
+  y el discriminante es **`sh.onArmor`, nunca `ent:IsPlayer()`**: quien pregunta quiere saber
+  dónde está el pool, no de qué especie es la víctima — así `ProcessShield` y el Think siguen
+  sin mirar el tipo de entidad ni una vez. El campo `hp` **no se declara** cuando el almacén
+  es `ply:Armor()`. `sh.frac` lleva **sólo el resto sub-unitario** (< 1): sin él la regen se
+  rompe *en silencio* — rate 15 con think 0,1 deposita 1,5 por tick, el int trunca a 1, y el
+  escudo carga a **10/s en vez de 15/s**. **[PENDIENTE]**
+
+- PARCHE 4 — feat(core): **la anulación del goteo**. Tiene dos casos y **sólo uno hay que
+  pelearlo**. En tres de los cuatro desenlaces de `ProcessShield` no hay nada que anular, y es
+  consecuencia directa del no-overflow (CAL-15): al absorber y al reventar el daño queda en
+  **cero**, y con daño cero los dos lados del reparto son cero — el goteo no se apaga, se queda
+  sin nada que repartir; y con el escudo caído el pool ya es cero. El caso que sí hay que pelear
+  es el **bypass con pool arriba**: ahí se le **esconde el pool** (`SetArmor(0)`) y con eso la
+  vida se lleva el daño entero — **fila 3 de la tabla de §13.0, medida, no una cita del motor**.
+  Se esconde **siempre**, incluso para `DMG_FALL` que el engine ya excluye: esconder de más es
+  un no-op, y así la corrección no depende de ninguna lista de tipos sin medir. **[PENDIENTE]**
+
+- PARCHE 5 — feat(shields): **la lista de bypass viaja en el escudo** (`sh.bypass`), y el
+  jugador salta además **`DMG_FALL`**. No es una excepción para jugadores: como el pool del
+  jugador **es** el pool del engine, la lista de exclusión del engine es parte del contrato de
+  ese pool. Si el escudo drenara la caída, caer pasaría a pegar distinto según cuánto escudo
+  tengas — el agujero exacto que CAL-16 existe para tapar. ⚠ **`DMG_DROWN`, `DMG_POISON` y
+  `DMG_RADIATION` NO están en la lista a propósito: en este build no se midieron.** Hoy drenan
+  el escudo del jugador, y está declarado. **[PENDIENTE]**
+
+- PARCHE 6 — feat(shields): los tres concommands de debug resuelven su sujeto con
+  `ShieldTarget` —lo que estás mirando si es NPC o jugador, y **a ti mismo** si no estás
+  mirando a nadie—, e imprimen **siempre sobre quién operan**. Antes abrían con
+  `if not e:IsNPC() then return end`, así que **no había forma de darle un escudo al propio
+  jugador**, que es todo el sujeto de esta tanda. `caliber_shield_status` gana el pool con dos
+  decimales, dónde vive, el `frac`, la máscara de bypass y **el techo del almacén — también
+  cuando no hay escudo**, que es lo único que vuelve medible desde la consola que
+  `RemoveShield` lo haya devuelto. **[PENDIENTE]**
+
+- PARCHE 7 — fix(shields): **el techo original se guarda en la ENTIDAD y no en la tabla del
+  escudo**, y sólo la primera vez. Defecto encontrado **releyendo el propio parche**, no
+  midiendo: `InitShield` es idempotente y se vuelve a llamar **sin respawn** —
+  `RefreshAllShields` al editar el whitelist, y el re-registro de un hot-reload—; con el
+  guardado en `sh`, la tabla nueva capturaba como "anterior" **el techo que le puso el escudo
+  anterior**, y `RemoveShield` devolvía 70 donde iban 100, sin un error. ⚠ **En el respawn no
+  se nota**, porque `player_manager` repone el 100 antes de que corra el timer — o sea que el
+  defecto se escondía justo en el camino que se prueba primero. Lo mide la **K12**. **[PENDIENTE]**
+
+- PARCHE 8 — docs: **`Caliber_Architecture.md` §13.9** (sede de CAL-27), sub-sección nueva y
+  autocontenida: la decisión y qué la volcó, el criterio del punto de entrada con su tabla,
+  los cuatro desenlaces contra lo que el engine haría, la lista de bypass, el ciclo de vida, y
+  **lo que no se tocó y por qué**. Entrada **CAL-27** en `corpus/docs/ids.yaml` en el mismo
+  parche (FLU-36), y la letra de sección **K** registrada en `familias_excluidas`
+  **antes de usarse** (FLU-30) — que es lo que la **J** no hizo. `check-ids` limpio.
+  **[APLICADO 2026-08-25]**
+
+- PARCHE 9 — checks: `dev/checks/caliber-b3-paso2.html`, sección **K**, 16 filas. **La mitad
+  son controles negativos**, que es lo que separa *"anduvo"* de *"rompí el pipeline que ya
+  andaba"*: el lado NPC igual que siempre (**K14**), un jugador sin escudo con el reparto de
+  HL2 intacto (**K13**, que además re-corre la J5), la caída sin tocar el pool (**K9**) y el
+  escalado de hitgroup en sus 2,00 / 1,00 / 0,25 (**K15**). Dos filas miden **afirmaciones que
+  este paso escribió sin medir** y ahí un FALLA es el hallazgo: la **K4** (que el techo del
+  almacén se pueda mover por encima de 100) y la **K16** (en qué orden corren el reparto del
+  engine y `PostEntityTakeDamage`). Y siguiendo COA-35, la constante de la regen lleva **dos**
+  filas: una derivada (**K10**, el `frac`) y una de **propiedad** (**K11**, que el escudo
+  llegue a lleno) — *un check que deriva su esperado de la constante no puede auditar esa
+  constante*. Las dos primeras filas corren los **dos parches `[PENDIENTE]` del probe** del
+  2026-08-23, y la del radial pide **tres corridas seguidas** porque arregla un sorteo.
+  **[APLICADO 2026-08-25]** *(la planilla existe; lo que está pendiente es correrla)*
+
+### Lo que se declara y NO se arregla acá
+
+- **`corpus-cargo/lua/` no se tocó una línea.** El tope literal `100` de `cargo_hl2_battery`
+  (§13.5) **sigue en pie y es de Cargo**: una batería sobre un `hev` de 50 carga hasta el doble
+  de lo que el escudo puede tener. Con CAL-27 el ítem queda correcto **por construcción** salvo
+  ese número, que tiene que pasar a ser el `max_hp` del escudo activo.
+- **Coagulant: cero líneas**, y sigue recibiendo la mitigación gratis (§13.8).
+- **La barra de Caliber en el StatusPanel** (§13.6) no se registra todavía: hoy sigue dibujando
+  la de Cargo, que con este mapeo pasó a mostrar el pool del escudo sin cambiar una línea.
+- **La deuda heredada de §10** viaja sin tocar, cita CAL-21.
+
+### Una consecuencia sobre el INSTRUMENTO que no estaba escrita
+
+**El argumento `armor` de `caliber_ply_probe` es ahora el POOL DEL ESCUDO.** El probe hace
+`ply:SetArmor(armor)` antes de disparar, así que **siembra el pool** — y clampea a 0..100, o
+sea que puede dejarlo fuera del rango de un escudo con otro `max_hp`. Está en el pie de la
+planilla, y las filas con escudo pasan el mismo número que el `max_hp`.
+
+Y **en las filas con escudo no se leen los cocientes del probe**: el probe observa en
+`EntityTakeDamage` (`Caliber_Probe_B`) y el punto de entrada del escudo vive en **ese mismo
+evento**, así que cuál corre primero **no está determinado**. La línea `perdido hp=… armor=…`
+sale de restar el estado antes y después del golpe entero y **no depende del orden de los
+hooks**; es la única que puede sostener un criterio.
+
+---
+
 ## PARCHES DE sesión Block 3, tramo 0 — la ronda 2 cierra el paso 1 — 2026-08-23
 
 `dev/checks/caliber-b3-tramo0-r2.html`, cuatro filas: **3 pasa · 0 falla · 1 sin correr**.

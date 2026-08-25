@@ -5,7 +5,7 @@
 > secciones ni historial). El historial vive en `git` + [`CHANGELOG.md`](CHANGELOG.md).
 > Si crece de una pantalla, está mal redactado: recortar.
 
-**Última actualización:** 2026-08-22 (paridad ADS verificada en juego el 2026-07-09 — Block 2 CERRADO, commiteado y publicado en GitHub, `main`; los docs pasaron la **pasada de veracidad del 2026-07-14**. El 2026-07-30 entra, se verifica en juego y se publica el primer fix de runtime post-Block 2. El 2026-08-17 entra, se verifica en juego y se publica un segundo fix de runtime — el árbol está **al día con `origin/main`**. El 2026-08-22 entran DOS sesiones. La primera, de **ORIENTACIÓN sin código**: releva el estado real del lado jugador contra el código y vota el alcance del módulo — orden y votos en [`caliber_roadmap.txt`](caliber_roadmap.txt) `[1]`. La segunda abre el **tramo 0 del Block 3**. El 2026-08-22 el autor **corre la planilla en juego** (12/13) y el 2026-08-23 el tramo 0 **CIERRA**: el número medido baja a los docs, el contrato Cargo↔Caliber se documenta en `Caliber_Architecture.md` §13, y una **ronda 2** de 4 filas (3/4, y la que falta no bloquea) cierra el paso 1 entero midiendo el escalado de hitgroup sobre las siete zonas)
+**Última actualización:** 2026-08-22 (paridad ADS verificada en juego el 2026-07-09 — Block 2 CERRADO, commiteado y publicado en GitHub, `main`; los docs pasaron la **pasada de veracidad del 2026-07-14**. El 2026-07-30 entra, se verifica en juego y se publica el primer fix de runtime post-Block 2. El 2026-08-17 entra, se verifica en juego y se publica un segundo fix de runtime — el árbol está **al día con `origin/main`**. El 2026-08-22 entran DOS sesiones. La primera, de **ORIENTACIÓN sin código**: releva el estado real del lado jugador contra el código y vota el alcance del módulo — orden y votos en [`caliber_roadmap.txt`](caliber_roadmap.txt) `[1]`. La segunda abre el **tramo 0 del Block 3**. El 2026-08-22 el autor **corre la planilla en juego** (12/13) y el 2026-08-23 el tramo 0 **CIERRA**: el número medido baja a los docs, el contrato Cargo↔Caliber se documenta en `Caliber_Architecture.md` §13, y una **ronda 2** de 4 filas (3/4, y la que falta no bloquea) cierra el paso 1 entero midiendo el escalado de hitgroup sobre las siete zonas. El **2026-08-25 se escribe el paso 2**: el autor vota la decisión abierta —`ply:Armor()` es el **ALMACÉN** del pool del escudo, **CAL-27**— y baja el código, la sección §13.9 y la planilla **K** de 16 filas. **NADA de eso corrió en juego todavía**)
 
 ---
 
@@ -65,23 +65,50 @@
   Arreglado el 2026-08-23 (centro del hitbox + tiro radial desde afuera), **y ahora una
   medición con el hitgroup equivocado se DESCARTA sin imprimir cocientes**: antes imprimía
   el aviso y debajo el resultado completo, y el número le ganaba al aviso.
-- **El módulo sigue sin punto de entrada de daño para el jugador**: el único hook es
-  `ScaleNPCDamage`, que el engine no dispara para jugadores. Eso es el paso 2.
+- **El paso 2 está ESCRITO y SIN CORRER EN JUEGO** (planilla `dev/checks/caliber-b3-paso2.html`,
+  sección **K**, 16 filas). El módulo **ya tiene punto de entrada de daño para el jugador**: un
+  hook `EntityTakeDamage` (`Caliber_Core_Player`) y **no** `ScalePlayerDamage` — aquél sólo cubre
+  trace attacks, el hitgroup no hacía falta porque el escudo es un pool global, y no estando en
+  esa cadena la trampa del `return` deja de ser una disciplina. ⚠ Se descubrió que
+  **`EntityTakeDamage` tiene la MISMA trampa** (`GM:EntityTakeDamage` también es método del
+  gamemode) y no estaba escrita en ningún lado. El ciclo de vida del escudo dejó de ser NPC-only
+  (`ShieldEnts`, `PlayerSpawn`, `PlayerDeath`), y el pool vive en `ply:Armor()` vía
+  `PoolGet`/`PoolSet` con `sh.onArmor` de discriminante — nunca `IsPlayer()`.
+- **La anulación del goteo tiene DOS casos y sólo uno hubo que pelearlo.** En tres de los cuatro
+  desenlaces no hay nada que anular: al absorber y al reventar el daño queda en cero (no-overflow,
+  CAL-15) y **con daño cero los dos lados del reparto son cero**; con el escudo caído el pool ya
+  es cero. El único que pelea es el **bypass con pool arriba**, donde se le **esconde el pool** al
+  engine — apoyado en la fila 3 de §13.0, medida, no citada.
+- **⚠ DOS AFIRMACIONES DE ESTE PASO ESTÁN LEÍDAS Y NO MEDIDAS, y tienen fila propia.** (a) que el
+  techo de `ply:Armor()` se pueda mover por encima de 100 — es `PLAYER.MaxArmor` del gamemode
+  base, no del engine, **el mismo hallazgo de forma que §13.0 hizo con el hitgroup**, pero que
+  `SetArmor` no clampee igual **no se comprobó** (fila **K4**); (b) en qué orden corren el reparto
+  del engine y `PostEntityTakeDamage` (fila **K16**). En las dos, **un FALLA es el hallazgo**.
+- **⚠ El argumento `armor` de `caliber_ply_probe` es ahora el POOL DEL ESCUDO** — consecuencia de
+  CAL-27 sobre el instrumento. Y en las filas con escudo **no se leen sus cocientes**: el probe
+  observa en `EntityTakeDamage` y el punto de entrada vive en ese mismo evento, así que el orden
+  no está determinado. Se lee `perdido hp=… armor=…`, que no depende del orden de los hooks.
+- **Lo que se declaró y NO se arregló:** el tope literal `100` de `cargo_hl2_battery` (§13.5)
+  **sigue en pie y es de Cargo** — una batería sobre un `hev` de 50 cargaría el doble de lo que el
+  escudo puede tener. Y `DMG_DROWN`/`DMG_POISON`/`DMG_RADIATION` **drenan** el escudo del jugador:
+  HL2 los excluye del reparto, pero en este build **no se midieron** y por eso no entraron a la
+  lista de bypass.
 - **Ruido de pasos recurrente en NPCs:** confirmado **externo a Corpus/Caliber** (se
   reproduce con el módulo inerte; locomoción paridad exacta con ADS). Fuera de scope.
 
 ## Próximo paso
 
-1. **El paso 2 del tramo, y ya no falta nada para escribirlo.** Bajar el mapeo
-   `ply:Armor()` = pool del escudo y anular el goteo del 0,2, replicando que `DMG_FALL` no
-   toca el pool. Se escribe contra [`Caliber_Architecture.md`](Caliber_Architecture.md)
-   §13, que tiene el contrato y los tres números.
-2. **Ojo al escribirlo:** `caliber_engine_hitgroup_compensation` **no se le aplica al
-   jugador** — el escalado de hitgroup ya viene aplicado desde `GM:ScalePlayerDamage` antes
-   de que el pipeline lo vea, así que dividir otra vez lo contaría dos veces.
-3. **Deuda chica del instrumento, `[PENDIENTE]` de una pasada corta:** los dos parches del
-   2026-08-23 — un argumento no numérico corta, y el radial se aplana sólo hacia abajo. El
-   segundo arregla un **sorteo**, así que su criterio es tres corridas seguidas, no una.
+1. **CORRER LA PLANILLA K EN JUEGO.** `dev/checks/caliber-b3-paso2.html`, 16 filas. Hasta que
+   corra, **los parches 1-7 del CHANGELOG del 2026-08-25 son `[PENDIENTE]`** y el paso 2 no está
+   cerrado. Las filas que más importan no son las que prueban que anduvo: son los **controles
+   negativos** (K13, K14, K15, K9) y las **dos que miden lo que se escribió sin medir** (K4, K16).
+2. **Recién después, el paso 3 del tramo:** la indirección **hitgroup → SLOT DE ZONA** en el
+   perfil de armadura — el único cambio estructural del tramo, y lo que CRG-77 necesita para que
+   Cargo pueda expresar sus `condition_zones`. ⚠ Ese día el punto de entrada del jugador
+   **tiene que resolver el hitgroup por su cuenta** (`ply:LastHitGroup()`): `EntityTakeDamage` no
+   lo trae, y hoy no hacía falta porque el escudo es un pool global. Está declarado en §13.9.
+3. **Y el paso 4, el último:** la pestaña *Armor (Player)* del Configurator, indexada por
+   playermodel. Hoy la identidad del jugador es el classname `"player"` y nada más.
 
 ---
 
