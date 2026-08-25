@@ -745,3 +745,61 @@ pregunta del tramo que sigue sin respuesta. Criterio: `escalado entre A y B` da 
 con `hg=1`, **1,0000** con `hg=2` y **0,2500** con `hg=6`. Si vuelve a salir
 `MEDICION DESCARTADA`, la fila es **SIN CORRER**, no FALLA, y el defecto es del
 instrumento otra vez.
+
+---
+
+## PARCHES DE sesión El deferral §9.c se resuelve: el scavenger SE QUEDA — 2026-08-25
+
+Parche **de un solo doc**, disparado desde afuera: el bloque de escuadrones de `corpus-cortex`
+contestó el contrato entrante #6, que es la pregunta que **§9.c de este repo había dejado abierta a
+propósito** en el pase de migración. **No se toca una línea de Lua, ni una convar, ni un asset.**
+
+- PARCHE 1 — **`docs/Caliber_Architecture.md` §9.c**: la sección deja de decir *«no se decide
+  acá»* y gana el veredicto, **citando su sede** (`../../corpus-cortex/CLAUDE.md` §Contratos) sin
+  re-derivarla. **El scavenger y el FX se quedan en Caliber**: la deuda de frontera **se cierra, no
+  se traslada**. **[APLICADO 2026-08-25]**
+
+### ⭐ Y la medición dio vuelta la premisa de este propio deferral
+
+§9.c decía *«scavenger está acoplado al drop de `Limbs`»*. Describe bien el vínculo, pero **al revés
+en la dirección**. Medido sobre el árbol: `corpus_caliber_scavenger.lua` **no llama a `limbs` ni una
+vez** —cero referencias de código; sus seis menciones de `limb` son comentarios— y es **`limbs`
+quien lo llama**, en 5 call-sites (`corpus_caliber_limbs.lua:57,58,70,75,76`), **todos ya guardados
+con `if CALIBER.X then`**.
+
+O sea que el vínculo **ya tenía forma de contrato entre pares**, no de enredo interno — y por eso
+*partirlo* nunca fue el problema que había que resolver.
+
+### ⚠ Lo que este repo SÍ gana, y es trabajo pendiente
+
+Un **gate nuevo** en `ProcessScavengerNPC`. Hoy sólo mira combate (`GetEnemy` más
+`caliber_scavenger_interrupt_combat`), y **le falta preguntar si el NPC está bajo órdenes** —
+honestamente, porque cuando se escribió no existía nadie que diera órdenes. Con Cortex montado eso
+colisiona de tres formas y **ninguna da error**:
+
+1. `MoveNPCToWeapon` hace `SetLastPosition` sobre **el mismo canal** que usa Cortex ⇒ le reescribe
+   el destino a una orden en vuelo.
+2. `TryPickupAnimation`, rama VJ, corre con `lockAnim=true`, que hace **`StopMoving` +
+   `ClearSchedule`** ⇒ le **borra** el schedule.
+3. Y la peor: la cola de órdenes de Cortex **sondea** `IsCurrentSchedule`, así que puede leer un
+   schedule que Cortex no puso y acreditar *«orden terminada»* cuando el NPC se fue a buscar una
+   escopeta.
+
+**La forma del gate la fija CTX-9** (`Cortex.Body.Claim/Release/Holder`), se consume vía
+`Corpus.GetModule("cortex")` con degradación honesta —**sin Cortex montado el scavenger corre
+exactamente como hoy**— y **entra cuando Cortex tenga código**, no antes. ⚠ Y cuando se escriba, ojo
+con el `timer.Simple` de `EquipWeapon`: el `Release` va en el **último** de sus timers, no en la
+llamada sincrónica.
+
+### Por qué el re-home se descartó, con los números
+
+14 de las **17** convars del scavenger son de comportamiento y **todas** son `FCVAR_ARCHIVE`:
+renombrarlas **resetea en silencio la configuración de todo servidor ya instalado** (y
+`FCVAR_REPLICATED` es invisible para el harness, así que eso se verifica por comportamiento). Y
+**Caliber solo perdería la feature entera** — una regresión real en una configuración real, a cambio
+de prolijidad de propiedad.
+
+**Verificación:** sin superficie de runtime — es doc. Las afirmaciones se adjudicaron abriendo el
+archivo, con `rg --no-ignore` y denominador. El detalle completo, con las tres piezas del archivo,
+vive en `../../corpus-cortex/docs/Cortex_Escuadrones_Arquitectura.md` §1 y §2, y **acá no se
+duplica**. No commiteado ni pusheado (GIT-7).

@@ -257,6 +257,21 @@ Ambos se quedan en Caliber en este bloque: scavenger está acoplado al drop de `
 
 **No se decide acá.** Queda flageado para revisar cuando se diseñe el scope de comportamiento de Cortex. Si en ese momento se confirma que es behavior, se re-homea entonces — no ahora.
 
+#### ✅ RESUELTO el 2026-08-25 — el scavenger SE QUEDA, y gana un gate
+
+**El diseño de Cortex corrió y contestó la pregunta** (contrato entrante #6). El veredicto, cuya **sede es `../../corpus-cortex/CLAUDE.md` §Contratos** y acá se **cita**:
+
+> **Sí es comportamiento de NPC, y por eso queda bajo la autoridad de Cortex sobre el cuerpo del NPC — pero NO se re-homea** (**CTX-8**). Es una adjudicación de **autoridad**, no de **hosting**.
+
+**Lo que eso significa para este repo, en concreto:**
+
+- **El archivo no se mueve, y no se toca una convar.** El párrafo de arriba queda como está: `scavenger` y FX siguen siendo de Caliber. La deuda de frontera se **cierra**, no se traslada.
+- ⭐ **Y la medición dio vuelta la premisa de este propio deferral:** la frase *«scavenger está acoplado al drop de `Limbs`»* describe bien el vínculo pero **al revés en la dirección**. Medido: `corpus_caliber_scavenger.lua` **no llama a `limbs` ni una vez** —cero referencias de código— y es **`limbs` quien lo llama**, en 5 call-sites (`corpus_caliber_limbs.lua:57,58,70,75,76`) **ya guardados con `if CALIBER.X then`**. O sea que el vínculo ya tenía forma de contrato entre pares, no de enredo interno — y por eso partirlo nunca fue el problema.
+- ⚠ **Lo que Caliber SÍ gana, y es trabajo pendiente de este repo:** un gate nuevo en `ProcessScavengerNPC`. Hoy sólo mira combate (`GetEnemy` más `caliber_scavenger_interrupt_combat`), y **le falta preguntar si el NPC está bajo órdenes** — porque `MoveNPCToWeapon` hace `SetLastPosition` sobre **el mismo canal** que usa Cortex, y `TryPickupAnimation` en su rama VJ corre con `lockAnim=true`, que hace **`StopMoving` + `ClearSchedule`**. Con Cortex montado eso le pisa el destino a una orden y le borra el schedule, **sin dar un error**.
+- **La forma del gate la fija CTX-9** (`Cortex.Body.Claim/Release/Holder`), se consume vía `Corpus.GetModule("cortex")` con degradación honesta —**sin Cortex montado el scavenger corre exactamente como hoy**— y **entra cuando Cortex tenga código**, no antes.
+
+**Detalle completo, con las tres piezas del archivo y los costos medidos:** `../../corpus-cortex/docs/Cortex_Escuadrones_Arquitectura.md` §1 y §2.
+
 ---
 
 ## 10. Deuda heredada — viaja sin tocar
