@@ -202,7 +202,7 @@ end
 
 concommand.Add("caliber_ply_probe", function(ply, cmd, args)
     if not IsValid(ply) or not ply:IsPlayer() then
-        Corpus.Log("caliber", "[Caliber PROBE] correlo desde un jugador, no desde la consola del server.")
+        Corpus.Log("caliber", "[Caliber PROBE] córrelo desde un jugador, no desde la consola del server.")
         return
     end
     if not ply:IsAdmin() then
@@ -1346,6 +1346,162 @@ hook.Add("ScaleNPCDamage","Caliber_Core_NPC",function(npc,hg,di)
             armorPath, ageStr, dmg_in, dmg_final))
     end
 end)
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- PUNTO DE ENTRADA DE DAÑO DEL JUGADOR — Block 3, paso 2
+-- ═════════════════════════════════════════════════════════════════════════════
+--
+-- Hasta hoy el modulo NO TENIA NINGUNO: el unico hook de daño era ScaleNPCDamage,
+-- que el engine no dispara para jugadores. No estaba mal implementado — no existia.
+--
+-- POR QUE EntityTakeDamage Y NO ScalePlayerDamage. Las dos estaban medidas y NO son
+-- equivalentes; el criterio, escrito y no elegido:
+--
+--  (a) ScalePlayerDamage SOLO CUBRE TRACE ATTACKS. El motor no lo llama para una
+--      caida, un ahogo ni una explosion por radio — medido en el tramo 0: la via
+--      `direct` del probe (TakeDamageInfo) no lo dispara. Un pre-filtro de escudo
+--      montado ahi deja agujeros que NO DAN NINGUN ERROR: el escudo simplemente no
+--      se entera. EntityTakeDamage ve TODO el daño, y el reparto del engine corre
+--      DESPUES de el (medido: en los dos hooks el pool sigue entero).
+--
+--  (b) EL HITGROUP NO HACE FALTA, que es lo unico que ScalePlayerDamage aportaria.
+--      El escudo es un POOL GLOBAL (CAL-14): CALIBER.ProcessShield recibe `hg` y no
+--      lo lee en una sola linea de su cuerpo. El hitgroup entra al pipeline recien
+--      en el paso 3, con la armadura por zona — y ese dia el punto de entrada va a
+--      tener que resolverlo por su cuenta (ply:LastHitGroup(), que lo escribe el
+--      motor y no una cadena de hooks). No es gratis, y esta declarado.
+--
+--  (c) Y ASI LA TRAMPA DE ScalePlayerDamage DEJA DE SER UNA DISCIPLINA Y PASA A SER
+--      IMPOSIBLE. Un `return` con valor en un listener de ese evento aborta
+--      hook.Call y se saltea GM:ScalePlayerDamage ENTERO — o sea el escalado de
+--      hitgroup del jugador (cabeza 2,00 / torso 1,00 / miembros 0,25) en las siete
+--      zonas, de TODO el server, sin un solo error, y con un sintoma que parece un
+--      bug de Caliber. La forma segura de no cortar esa cadena es no estar en ella:
+--      fuera del probe, Caliber no monta un listener ahi.
+--
+-- ⚠ PERO EntityTakeDamage TIENE LA MISMA TRAMPA, y no estaba escrita en ningun
+--   documento: GM:EntityTakeDamage TAMBIEN es el metodo del gamemode y TAMBIEN
+--   corre despues de todos los hook.Add. Por eso este listener cierra SIN `return`
+--   con valor, y la supresion del goteo de mas abajo se hace con di:SetDamage(0) y
+--   moviendo el pool — nunca con `return true`.
+hook.Add("EntityTakeDamage", "Caliber_Core_Player", function(ent, di)
+    -- Lo barato primero: este hook corre para CADA entidad dañada del mapa.
+    if not ent:IsPlayer() then return end
+    if not CALIBER.ProcessShield then return end   -- instalacion parcial (ver §4 del manifest)
+    local sh = ent.Caliber_Shield
+    -- Sin escudo de Caliber, Caliber NO TOCA NADA: ply:Armor() vuelve a ser la
+    -- armadura de HL2 y se reparte como siempre. Degradacion honesta.
+    if not sh then return end
+
+    local dmgIn = di:GetDamage()
+    local dbgOn = DBG:GetInt() >= 1
+
+    -- El escudo es el pre-filtro (CAL-13). `hg` no lo lee ProcessShield, pero se le
+    -- pasa el que el motor dejo escrito para que la traza diga por donde entro.
+    local absorbed, tr = CALIBER.ProcessShield(ent, ent:LastHitGroup(), di)
+
+    if absorbed then
+        -- ── LA ANULACION DEL GOTEO, CASO COMUN ──────────────────────────────
+        -- No-overflow (CAL-15): ProcessShield ya hizo di:SetDamage(0), tanto al
+        -- absorber como al reventar. Y ESO YA ES LA ANULACION: el reparto del
+        -- engine es 0,2 x daño a la vida y 0,8 x daño al pool, asi que CON DAÑO
+        -- CERO LOS DOS LADOS SON CERO. No hay que apagarle nada al engine — no le
+        -- queda nada que repartir. El pool ya lo movio ProcessShield escribiendo
+        -- ply:Armor() (CAL-27), que es el mismo numero que el engine no va a tocar.
+        if dbgOn then
+            Corpus.Log("caliber", string.format(
+                "[Caliber PLY] SHIELD %-8s drain=%.2f%s  pool=%.2f->%.2f  in=%.1f->0  (goteo: nada que repartir)",
+                tr.reason, tr.drain or 0, tr.plasma and " plasma" or "",
+                tr.hpBefore or 0, tr.hpAfter or 0, dmgIn))
+        end
+        return   -- ⚠ SIN VALOR: ver la nota de arriba sobre GM:EntityTakeDamage
+    end
+
+    -- ── EL HIT PASA ENTERO ──────────────────────────────────────────────────
+    -- trace NIL = Caliber se retiro de este hit (subsistema apagado, o daño <= 0).
+    -- Ahi el reparto de HL2 es el comportamiento correcto y no se toca.
+    if not tr then return end
+
+    -- Queda: bypass (melee, y para el jugador tambien DMG_FALL) y escudo caido. En
+    -- los dos el daño tiene que llegar ENTERO a la vida y el pool NO se toca.
+    --
+    -- ── LA ANULACION DEL GOTEO, EL CASO QUE SI HAY QUE PELEAR ────────────────
+    -- El reparto del engine vive en C++ ENTRE este hook y PostEntityTakeDamage, y
+    -- NO SE PUEDE HOOKEAR POR EL MEDIO. Lo unico que se controla es cuanto daño
+    -- LLEGA y CUANTO POOL VE. Con daño entero y pool arriba el engine se llevaria
+    -- 0,8 x daño del pool y le daria a la vida solo 0,2 — o sea que un machetazo
+    -- drenaria el escudo (contra CAL-16) y ademas pegaria un quinto de lo que dice.
+    --
+    -- Asi que se le ESCONDE EL POOL: con ply:Armor() en cero su condicion no entra
+    -- y la vida se lleva el daño ENTERO. Eso NO es una cita del motor — es la fila
+    -- 3 de la tabla de §13.0, medida en juego el 2026-08-22: sin pool, −100 de vida.
+    -- Y se esconde SIEMPRE, incluso para DMG_FALL, que el engine ya excluye solo:
+    -- esconder de mas es un no-op, y asi la correccion no depende de ninguna lista
+    -- de tipos que este archivo no haya medido.
+    local pool = ent:Armor()
+    if pool <= 0 then
+        if dbgOn then
+            Corpus.Log("caliber", string.format(
+                "[Caliber PLY] PASA   %-8s  in=%.1f  pool=0  (nada que esconder: el engine no reparte sin pool)",
+                tr.reason, dmgIn))
+        end
+        return
+    end
+
+    ent.Caliber_PoolHold = pool
+    ent:SetArmor(0)
+    if dbgOn then
+        Corpus.Log("caliber", string.format(
+            "[Caliber PLY] PASA   %-8s  in=%.1f  pool %d ESCONDIDO (se repone del otro lado)",
+            tr.reason, dmgIn, pool))
+    end
+
+    -- ── La reposicion, y por que va en DOS lugares ───────────────────────────
+    -- PostEntityTakeDamage es el lugar natural y cierra la ventana en el acto: un
+    -- segundo golpe en el mismo frame ya encuentra el pool puesto.
+    --
+    -- ⚠ Pero QUE ORDEN TIENEN EL REPARTO DEL ENGINE Y ESE HOOK **NO ESTA MEDIDO**.
+    -- El tramo 0 midio que el pool esta entero en EntityTakeDamage y nada mas; el
+    -- probe lee `took` en PostEntityTakeDamage, no la armadura. Asi que el timer de
+    -- frame de aca abajo hace DOS cosas distintas segun lo que encuentre:
+    --   · si el token sigue puesto, PostEntityTakeDamage NO CORRIO (alguien abortó
+    --     la cadena) y repone — el pool no se pierde por una cadena cortada;
+    --   · si el token ya no esta pero el pool bajo igual, AVISA Y NO CORRIGE.
+    -- Lo segundo es a proposito: ese aviso es la unica forma de distinguir "el
+    -- reparto corre despues de Post" de "hubo otro golpe legitimo en el frame", y
+    -- corregir a ciegas taparia justo cual de las dos es. Un instrumento que
+    -- corrige en vez de reportar convierte una medicion en una suposicion.
+    local held = pool
+    timer.Simple(0, function()
+        if not IsValid(ent) then return end
+        if ent.Caliber_PoolHold then
+            local h = ent.Caliber_PoolHold
+            ent.Caliber_PoolHold = nil
+            ent:SetArmor(h)
+            Corpus.Log("caliber", string.format(
+                "[Caliber PLY] !! pool repuesto por la red del frame (%d): PostEntityTakeDamage no corrio para este golpe", h))
+            return
+        end
+        -- Gated: la causa benigna —otro golpe en el mismo frame— es comun, y un
+        -- aviso que grita siempre no distingue el arbol roto del uso normal.
+        if DBG:GetInt() >= 1 and ent:Armor() < held then
+            Corpus.Log("caliber", string.format(
+                "[Caliber PLY] !! el pool bajo DESPUES de PostEntityTakeDamage  %d -> %d.  O el reparto del engine corre despues de ese hook, o hubo otro golpe en el mismo frame. NO se corrige a proposito: corregir taparia cual de las dos es.",
+                held, ent:Armor()))
+        end
+    end)
+end)
+
+-- La mitad de la reposicion que cierra la ventana. Cuelga del token y de nada mas:
+-- si no hay token, este hook no existe para esta entidad.
+-- ⚠ Sin `return` con valor, por lo mismo que el de arriba.
+hook.Add("PostEntityTakeDamage", "Caliber_Core_Player_Restore", function(ent)
+    local hold = ent.Caliber_PoolHold
+    if not hold then return end
+    ent.Caliber_PoolHold = nil
+    ent:SetArmor(hold)
+end)
+-- ═════════════════════════════════════════════════════════════════════════════
 
 CALIBER.LoadConfig()
 dprint(1, string.format("config loaded: wl=%d bl=%d",table.Count(CALIBER.UserWhitelist),table.Count(CALIBER.UserBlacklist)))
