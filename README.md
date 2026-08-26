@@ -7,48 +7,48 @@
 
 # Caliber
 
-Módulo de **combate** del ecosistema [Corpus](https://github.com/Sepuldosky/corpus) para
-**Garry's Mod**: armadura zonal estilo Escape from Tarkov, escudos de energía, HP por extremidad y
-penetración balística — para NPCs (y, a futuro, jugador). Addon independiente que **hard-depende** de
-Corpus (la única dependencia dura del ecosistema) y detecta a los demás módulos en runtime, nunca los
-asume.
+**Combat** module of the [Corpus](https://github.com/Sepuldosky/corpus) ecosystem for
+**Garry's Mod**: Escape from Tarkov-style zonal armor, energy shields, per-limb HP and
+ballistic penetration — for NPCs (and, in the future, the player). Independent addon that
+**hard-depends** on Corpus (the ecosystem's only hard dependency) and detects the other
+modules at runtime, never assumes them.
 
-Nació de la migración de **Advanced Damage System 2.0** (`v1.0`, congelado) a un módulo de Corpus:
-rename de namespace + wiring sobre las 6 primitivas del framework, sin reescritura de dominio.
+Born from the migration of **Advanced Damage System 2.0** (`v1.0`, frozen) into a Corpus
+module: namespace rename + wiring over the framework's 6 primitives, with no domain rewrite.
 
-## Características
+## Features
 
-- **Blindaje por zona (hitgroup)**, no por entidad entera; cobertura asimétrica y durabilidad de placa.
-- **Penetración estilo EFT** modulada por durabilidad y clase de armadura; daño romo al bloquear, daño
-  reducido al perforar.
-- **HP por extremidad** (head/arms/legs) con debuffs, stun y drop de arma.
-- **Escudos de energía** por NPC (pool global recargable delante de la armadura zonal).
-- **Scavenger**: los NPCs recogen armas del suelo.
-- **Browser visual de configuración** por-NPC + tab en el menú Q (Utilities → Corpus → Caliber).
+- **Zonal armor (hitgroup)**, not whole-entity; asymmetric coverage and plate durability.
+- **EFT-style penetration** modulated by durability and armor class; blunt damage on block,
+  reduced damage on penetration.
+- **Per-limb HP** (head/arms/legs) with debuffs, stun, and weapon drop.
+- **Energy shields** per NPC (rechargeable global pool in front of the zonal armor).
+- **Scavenger**: NPCs pick up weapons from the ground.
+- **Visual configuration browser** per-NPC + tab in the Q menu (Utilities → Corpus → Caliber).
 
-## Requisitos
+## Requirements
 
-- **Corpus** (dependencia dura — sin él, Caliber no arranca).
-- Opcional: **ARC9** (datos EFT en vivo vía `GetProcessedValue`), **VJ Base**, **TFA Base**. Caliber
-  degrada con gracia si no están.
+- **Corpus** (hard dependency — without it, Caliber won't start).
+- Optional: **ARC9** (live EFT data via `GetProcessedValue`), **VJ Base**, **TFA Base**. Caliber
+  degrades gracefully if they're absent.
 
-## Documentación
+## Documentation
 
-- [`docs/Caliber_Architecture.md`](docs/Caliber_Architecture.md) — arquitectura del módulo (la migración).
-- [`docs/Caliber_EnergyShields_Arquitectura.md`](docs/Caliber_EnergyShields_Arquitectura.md) — subsistema de escudos.
-- [`docs/caliber_estado.md`](docs/caliber_estado.md) · [`docs/caliber_roadmap.txt`](docs/caliber_roadmap.txt) · [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — docs vivos.
-- [`CLAUDE.md`](CLAUDE.md) — guía para asistencia con Claude Code.
+- [`docs/Caliber_Architecture.md`](docs/Caliber_Architecture.md) — module architecture (the migration).
+- [`docs/Caliber_EnergyShields_Arquitectura.md`](docs/Caliber_EnergyShields_Arquitectura.md) — shields subsystem.
+- [`docs/caliber_estado.md`](docs/caliber_estado.md) · [`docs/caliber_roadmap.txt`](docs/caliber_roadmap.txt) · [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — living docs.
+- [`CLAUDE.md`](CLAUDE.md) — guide for assistance with Claude Code.
 
-## Créditos
+## Credits
 
-El subsistema de **Escudos de energía** reutiliza concepto, efectos y sonidos de dos mods deprecados
-(2022), **con permiso de sus autores**. El wiring de red se reescribió (los originales eran
-single-target sobre la armadura HL2 del jugador; Caliber es multi-NPC):
+The **Energy Shields** subsystem reuses the concept, effects and sounds of two deprecated mods
+(2022), **with permission from their authors**. The network wiring was rewritten (the originals
+were single-target over the player's HL2 armor; Caliber is multi-NPC):
 
 - **Speedy Von Gofast** — [*Halo Energy Shield*](https://steamcommunity.com/sharedfiles/filedetails/?id=2804418818):
-  burbuja de energía, partículas (`spdy_*`, set colorable `spdy_halo_3_custom_*`) y sonidos de
-  hit/colapso/recarga. Los nombres de sistema y rutas están horneados en los `.pcf`, por eso los
-  archivos conservan sus nombres/rutas originales.
+  energy bubble, particles (`spdy_*`, colorable set `spdy_halo_3_custom_*`) and hit/collapse/recharge
+  sounds. The system names and paths are baked into the `.pcf` files, so the files keep their
+  original names/paths.
 - **sora1d** — [*Goofy Armor Effect*](https://steamcommunity.com/sharedfiles/filedetails/?id=3305537845):
-  base del **HEV Charge Shield** (FX y sonidos de negación de daño que escalan con la carga, chispazo
-  cerca de agotarse, FX de depleción — built-in del engine).
+  base of the **HEV Charge Shield** (damage-negation FX and sounds that scale with charge, a spark
+  near depletion, depletion FX — built into the engine).
